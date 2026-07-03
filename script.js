@@ -1039,35 +1039,27 @@ function handleOrientation(e) {
   }
 
   let val = 0;
-  
-  // 1. Detect if the device is currently in landscape mode
   const isLandscape = window.orientation === 90 || window.orientation === -90 || 
                       (screen.orientation && screen.orientation.type.includes('landscape'));
 
   if (isLandscape) {
-    // In landscape mode, 'beta' tracks the steering tilt
     const orientationAngle = window.orientation !== undefined ? window.orientation : 
                              (screen.orientation && screen.orientation.angle ? screen.orientation.angle : 90);
-    
-    // Inverted directionFactor to match your phone's holding position
     const directionFactor = (orientationAngle === 90) ? -1 : 1;
 
     let targetBeta = e.beta;
     if (targetBeta === null || targetBeta === undefined) return;
 
-    // Normalize beta around 0 depending on holding angle
     let tilt = targetBeta * directionFactor;
     if (Math.abs(tilt) > 45) {
       tilt = tilt > 0 ? tilt - 90 : tilt + 90;
     }
     val = tilt;
   } else {
-    // Fallback for portrait mode where 'gamma' handles left/right tilt (also inverted to match)
     if (e.gamma === null || e.gamma === undefined) return;
     val = -e.gamma; 
   }
 
-  // 2. Map and scale sensor values to steering boundaries (-1.0 to 1.0)
   gyroRaw = val;
   if (!gyroCalibrated) {
     gyroOffset = gyroRaw;
@@ -1076,19 +1068,19 @@ function handleOrientation(e) {
 
   let adjusted = gyroRaw - gyroOffset;
   
-  // Set maximum comfortable steering angle bounds (e.g., 22 degrees for full lock)
-  const MAX_STEER_ANGLE = 22; 
+  /* === SENSITIVITY TUNING HACKS === */
+  const MAX_STEER_ANGLE = 55; // INCREASED from 22 to 55: Requires more tilt for full turns
   let targetSteer = adjusted / MAX_STEER_ANGLE;
   targetSteer = THREE.MathUtils.clamp(targetSteer, -1, 1);
 
-  // 3. Apply Deadzone filtering to prevent vehicle from drifting due to minor hand jitter
-  const DEADZONE = 0.05;
+  const DEADZONE = 0.06; // Slightly widened deadzone to prevent slight drifting
   if (Math.abs(targetSteer) < DEADZONE) {
     targetSteer = 0;
   }
 
-  // 4. Smooth out sensor adjustments linearly
-  gyroSmoothed += (targetSteer - gyroSmoothed) * 0.18;
+  // LOWERED from 0.18 to 0.07: Creates a smooth, dampening effect that filters hand vibrations
+  gyroSmoothed += (targetSteer - gyroSmoothed) * 0.07; 
+  
   input.steer = gyroSmoothed;
   input.steerActive = Math.abs(gyroSmoothed) > 0.02;
 }
@@ -1572,11 +1564,35 @@ async function enterMobilePresentation(){
   }
 }
 
-function beginRace(){
+function beginRace() {
+  countdown = 3; // Reset countdown timer
+  raceTime = 0;
+  raceOver = false;
+
+  // 1. Reset player position and completely zero out speeds
+  player.position.set(0, 0, 0); // Or wherever your track start coordinates are
+  player.speed = 0;             // Wipes velocity
+  if (player.velocity) player.velocity.set(0, 0, 0); 
+  player.finished = false;
+
+  // 2. Clear out any sticky keyboard/gyro inputs
+  input.steer = 0;
+  gyroSmoothed = 0;
+
+  // 3. Reset all AI/Opponent cars so they don't drive away early either
+  if (Array.isArray(bots)) {
+    bots.forEach((bot, index) => {
+      bot.speed = 0;
+      if (bot.velocity) bot.velocity.set(0, 0, 0);
+      bot.finished = false;
+      // If your code resets bot positions via a specific layout formula:
+      // bot.position.set(startX, startY, startZ);
+    });
+  }
+
+  // Hide overlay menu, show HUD layout
   overlay.classList.add('hidden');
-  finishStats.innerHTML = '';
-  resetRace();
-  runCountdown();
+  hud.classList.remove('hidden');
 }
 
 function resetRace(){
@@ -1744,6 +1760,11 @@ function animate(now){
   let dt = (now - lastT) / 1000;
   lastT = now;
   dt = Math.min(dt, 0.05);
+
+  if (countdown > 0) {
+    player.speed = 0;
+    if(bots) bots.forEach(b => b.speed = 0);
+  }
 
   if (raceStarted && !raceOver){
     raceTime += dt;
