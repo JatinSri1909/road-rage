@@ -55,23 +55,14 @@
   </div>
 
   <div id="touchControls">
-    <!-- Steering slider (left/right) -->
-    <div id="steerSliderWrap" class="panel">
-      <div id="steerSlider" aria-label="Steering left and right" role="slider" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0">
-        <div class="steerTrack"></div>
-        <div class="steerCenter"></div>
-        <div class="steerFill steerLeftFill"></div>
-        <div class="steerFill steerRightFill"></div>
-        <div class="steerKnob"></div>
-        <div class="steerLabels">
-          <span>LEFT</span>
-          <span>RIGHT</span>
-        </div>
-      </div>
+    <!-- Left side: Drift and Nitro buttons -->
+    <div id="leftButtonsWrap">
+      <div class="btn" id="btnDrift">DRIFT</div>
+      <div class="btn" id="btnNosMobile">NOS</div>
     </div>
 
-    <!-- Gas and Brake buttons -->
-    <div id="driveButtonsWrap">
+    <!-- Right side: Gas and Brake buttons -->
+    <div id="rightButtonsWrap">
       <div class="driveBtn" id="btnBrake" aria-label="Brake">
         <div class="driveBtnLabel">BRAKE</div>
       </div>
@@ -79,12 +70,6 @@
         <div class="driveBtnLabel">GAS</div>
       </div>
     </div>
-
-    <!-- Drift button -->
-    <div class="btn" id="btnDrift">DRIFT</div>
-
-    <!-- NOS button (duplicate for mobile) -->
-    <div class="btn" id="btnNosMobile">NOS</div>
   </div>
 </div>
 

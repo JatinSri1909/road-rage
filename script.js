@@ -1099,75 +1099,72 @@ function bindHold(id, key){
 bindHold('btnDrift','drift');
 bindHold('btnNos','boost');
 
-const steerSlider = document.getElementById('steerSlider');
 const btnGas = document.getElementById('btnGas');
 const btnBrake = document.getElementById('btnBrake');
 const btnNosMobile = document.getElementById('btnNosMobile');
 
-// ===== STEERING SLIDER (horizontal) =====
-function bindSteerSlider(el){
-  let activePointer = null;
+// ===== GYROSCOPE STEERING =====
+let gyroEnabled = false;
+let gyroAlpha = 0; // rotation around Z axis
+let gyroGamma = 0; // tilt left/right (what we need for steering)
+let gyroCalibration = 0;
 
-  const updateSteer = (ev) => {
-    const rect = el.getBoundingClientRect();
-    const value = THREE.MathUtils.clamp(((ev.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
-    
-    input.steer = value;
-    input.steerActive = true;
-    el.setAttribute('aria-valuenow', String(Math.round(value * 100)));
-
-    // Update visual fills
-    const leftFill = el.querySelector('.steerLeftFill');
-    const rightFill = el.querySelector('.steerRightFill');
-    const knob = el.querySelector('.steerKnob');
-    
-    if (value < 0) {
-      // Steering left
-      if (leftFill) leftFill.style.width = `${Math.abs(value) * 50}%`;
-      if (rightFill) rightFill.style.width = '0';
+function initGyroscope(){
+  if (typeof DeviceOrientationEvent !== 'undefined') {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      // iOS 13+ requires permission
+      DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            gyroEnabled = true;
+            window.addEventListener('deviceorientation', handleGyro);
+            console.log('Gyro enabled with permission');
+          }
+        })
+        .catch(console.error);
     } else {
-      // Steering right
-      if (leftFill) leftFill.style.width = '0';
-      if (rightFill) rightFill.style.width = `${value * 50}%`;
+      // Android and older iOS
+      gyroEnabled = true;
+      window.addEventListener('deviceorientation', handleGyro);
+      console.log('Gyro enabled (no permission needed)');
     }
-    
-    if (knob) knob.style.left = `calc(50% + ${(value * 50).toFixed(2)}%)`;
-  };
+  }
+}
 
-  const start = (ev) => {
-    ev.preventDefault();
-    activePointer = ev.pointerId;
-    el.classList.add('active');
-    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
-    updateSteer(ev);
-  };
+function handleGyro(event){
+  if (!gyroEnabled) return;
+  
+  // gamma: left/right tilt (-90 to 90)
+  // Negative = tilting phone to the left (steer left)
+  // Positive = tilting phone to the right (steer right)
+  gyroGamma = event.gamma || 0;
+  
+  // Map -45 to 45 degrees to -1 to 1 steer range
+  // Dead zone: small tilts don't register
+  let steerValue = 0;
+  const deadZone = 8; // degrees
+  
+  if (Math.abs(gyroGamma) > deadZone) {
+    steerValue = THREE.MathUtils.clamp(gyroGamma / 45, -1, 1);
+  }
+  
+  input.steer = steerValue;
+  input.steerActive = true;
+}
 
-  const move = (ev) => {
-    if (activePointer !== ev.pointerId) return;
-    ev.preventDefault();
-    updateSteer(ev);
-  };
+// Request gyroscope permission on first interaction
+function requestGyroOnInteraction(){
+  if (!gyroEnabled && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    initGyroscope();
+  }
+}
 
-  const end = (ev) => {
-    if (activePointer !== null && ev.pointerId !== activePointer) return;
-    activePointer = null;
-    input.steer = 0;
-    input.steerActive = false;
-    el.classList.remove('active');
-    el.setAttribute('aria-valuenow', '0');
+document.addEventListener('click', requestGyroOnInteraction, { once: true });
+document.addEventListener('touchstart', requestGyroOnInteraction, { once: true });
 
-    const leftFill = el.querySelector('.steerLeftFill');
-    const rightFill = el.querySelector('.steerRightFill');
-    const knob = el.querySelector('.steerKnob');
-    if (leftFill) leftFill.style.width = '0';
-    if (rightFill) rightFill.style.width = '0';
-    if (knob) knob.style.left = '50%';
-  };
-
-  el.addEventListener('pointerdown', start);
-  el.addEventListener('pointermove', move);
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
+// Auto-init for Android
+if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
+  initGyroscope();
 }
 
 // ===== GAS AND BRAKE BUTTONS =====
@@ -1195,7 +1192,6 @@ function bindDriveButton(btnEl, inputKey){
 }
 
 // Bind all new controls
-if (steerSlider) bindSteerSlider(steerSlider);
 if (btnGas) bindDriveButton(btnGas, 'gas');
 if (btnBrake) bindDriveButton(btnBrake, 'brake');
 if (btnNosMobile) bindHold('btnNosMobile', 'boost');
@@ -1670,15 +1666,6 @@ function resetRace(){
   input.steerActive = false;
   input.driveValue = 0;
   input.driveActive = false;
-  const steerSliderEl = document.getElementById('steerSlider');
-  if (steerSliderEl) {
-    const knob = steerSliderEl.querySelector('.steerKnob');
-    const leftFill = steerSliderEl.querySelector('.steerLeftFill');
-    const rightFill = steerSliderEl.querySelector('.steerRightFill');
-    if (knob) knob.style.left = '50%';
-    if (leftFill) leftFill.style.width = '0';
-    if (rightFill) rightFill.style.width = '0';
-  }
   player.pos.copy(samplePts[0]); player.lastSampleIdx=0; player.maxSampleIdx=0;
   player.heading = Math.atan2(sampleTangents[0].x, sampleTangents[0].z);
   player.velocity.set(0,0,0);
@@ -1732,6 +1719,18 @@ function runCountdown(){
 async function handleStart(){
   if (!audioCtx) initAudio();
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  // Request gyroscope permission for iOS 13+
+  if (isMobileDevice && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission === 'granted') {
+        initGyroscope();
+      }
+    } catch (err) {
+      console.warn('Gyroscope permission denied or error:', err);
+    }
+  }
 
   if (isMobileDevice) {
     await enterMobilePresentation();
