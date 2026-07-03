@@ -1032,33 +1032,68 @@ let gyroSmoothed = 0;
 let gyroCalibrated = false;
 
 function handleOrientation(e) {
-  // CRITICAL FIX: e.gamma can be 0 (flat). Only reject null/undefined.
-  if (e.gamma === null || e.gamma === undefined) return;
+  if (raceOver || countdown > 0) {
+    input.steer = 0;
+    input.steerActive = false;
+    return;
+  }
+
+  let val = 0;
   
-  // Some devices emit 0,0,0 when sensors are warming up. Ignore those ghost events.
-  if (e.alpha === 0 && e.beta === 0 && e.gamma === 0) return;
-  
-  gyroRaw = e.gamma;
-  
-  // Auto-calibrate on first valid reading so the current hold angle becomes "center"
+  // 1. Detect if the device is currently in landscape mode
+  const isLandscape = window.orientation === 90 || window.orientation === -90 || 
+                      (screen.orientation && screen.orientation.type.includes('landscape'));
+
+  if (isLandscape) {
+    // In landscape mode, 'beta' tracks the steering tilt (tipping left/right like a steering wheel)
+    // Identify clockwise vs counter-clockwise landscape mode orientation mapping
+    const orientationAngle = window.orientation !== undefined ? window.orientation : 
+                             (screen.orientation && screen.orientation.angle ? screen.orientation.angle : 90);
+    const directionFactor = (orientationAngle === 90) ? 1 : -1;
+
+    let targetBeta = e.beta;
+    if (targetBeta === null || targetBeta === undefined) return;
+
+    // Normalize beta around 0 depending on holding angle (standard steering tilt sits around 90 or -90)
+    let tilt = targetBeta * directionFactor;
+    if (Math.abs(tilt) > 45) {
+      tilt = tilt > 0 ? tilt - 90 : tilt + 90;
+    }
+    val = tilt;
+  } else {
+    // Fallback for portrait mode where 'gamma' handles left/right tilt
+    if (e.gamma === null || e.gamma === undefined) return;
+    val = e.gamma;
+  }
+
+  // 2. Map and scale sensor values to steering boundaries (-1.0 to 1.0)
+  gyroRaw = val;
   if (!gyroCalibrated) {
     gyroOffset = gyroRaw;
     gyroCalibrated = true;
   }
+
+  let adjusted = gyroRaw - gyroOffset;
   
-  // Sensitivity: ~25 degrees of tilt = full steering lock
-  let val = (gyroRaw - gyroOffset) / 25;
-  val = THREE.MathUtils.clamp(val, -1, 1);
-  
-  // Smooth the input to reduce sensor jitter
-  gyroSmoothed += (val - gyroSmoothed) * 0.15;
-  
+  // Set maximum comfortable steering angle bounds (e.g., 22 degrees for full lock)
+  const MAX_STEER_ANGLE = 22; 
+  let targetSteer = adjusted / MAX_STEER_ANGLE;
+  targetSteer = THREE.MathUtils.clamp(targetSteer, -1, 1);
+
+  // 3. Apply Deadzone filtering to prevent vehicle from drifting due to minor hand jitter
+  const DEADZONE = 0.05;
+  if (Math.abs(targetSteer) < DEADZONE) {
+    targetSteer = 0;
+  }
+
+  // 4. Smooth out sensor adjustments linearly
+  gyroSmoothed += (targetSteer - gyroSmoothed) * 0.18;
   input.steer = gyroSmoothed;
-  input.steerActive = Math.abs(gyroSmoothed) > 0.04;
+  input.steerActive = Math.abs(gyroSmoothed) > 0.02;
 }
 
 async function requestGyroPermission() {
-  // iOS 13+ requires explicit permission request inside a user gesture
+  // Explicit gesture sensor permission routine required by modern platforms
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
     try {
       const response = await DeviceOrientationEvent.requestPermission();
@@ -1070,7 +1105,7 @@ async function requestGyroPermission() {
       console.warn('Gyro permission request failed:', e);
     }
   } else {
-    // Android Chrome / others: no explicit permission needed, just add listener
+    // Standard Android Chrome: event handler fallback
     gyroEnabled = true;
     window.addEventListener('deviceorientation', handleOrientation);
   }
