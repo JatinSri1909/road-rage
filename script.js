@@ -19,21 +19,39 @@ window.addEventListener('resize', () => {
 });
 
 function makeSkyTexture(){
-  const c = document.createElement('canvas'); c.width = 8; c.height = 256;
+  const c = document.createElement('canvas'); c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0,0,0,256);
-  g.addColorStop(0.0, '#05021a'); // Dark star space
-  g.addColorStop(0.35,'#180533'); // Deep violet
-  g.addColorStop(0.62,'#5c0c66'); // Vibrant magenta
-  g.addColorStop(0.82,'#c2185b'); // Bright pink
-  g.addColorStop(1.0, '#ff7a00'); // Sunset orange
-  ctx.fillStyle = g; ctx.fillRect(0,0,8,256);
+  // Rich multi-stop atmospheric gradient
+  const g = ctx.createLinearGradient(0,0,0,512);
+  g.addColorStop(0.0,  '#020114'); // Deep space black
+  g.addColorStop(0.08, '#06031f'); // Midnight blue-black
+  g.addColorStop(0.18, '#0d0630'); // Dark indigo
+  g.addColorStop(0.30, '#1a0a42'); // Royal purple
+  g.addColorStop(0.42, '#3d0f5c'); // Deep magenta-purple
+  g.addColorStop(0.54, '#6e1266'); // Rich magenta
+  g.addColorStop(0.64, '#a41850'); // Crimson-rose
+  g.addColorStop(0.73, '#d4413a'); // Warm red
+  g.addColorStop(0.82, '#e87420'); // Amber orange
+  g.addColorStop(0.90, '#f5a623'); // Golden
+  g.addColorStop(0.96, '#ffd98e'); // Pale golden horizon
+  g.addColorStop(1.0,  '#fff4d6'); // Warm white horizon glow
+  ctx.fillStyle = g; ctx.fillRect(0,0,512,512);
+
+  // Subtle atmospheric scattering bands (horizontal haze streaks)
+  for (let i = 0; i < 30; i++) {
+    const y = 200 + Math.random() * 300;
+    const alpha = 0.02 + Math.random() * 0.06;
+    const hue = Math.random() < 0.5 ? '255,140,60' : '200,80,120';
+    ctx.fillStyle = `rgba(${hue},${alpha})`;
+    ctx.fillRect(0, y, 512, 1 + Math.random() * 3);
+  }
+
   const tex = new THREE.CanvasTexture(c);
   tex.magFilter = THREE.LinearFilter;
   return tex;
 }
 scene.background = makeSkyTexture();
-scene.fog = new THREE.FogExp2(0x180533, 0.0022); // Misty sunset purple fog
+scene.fog = new THREE.FogExp2(0x1a0a30, 0.0020); // Deep atmospheric purple fog
 
 function makeEnvEquirect(){
   const c = document.createElement('canvas'); c.width = 128; c.height = 64;
@@ -72,11 +90,84 @@ function addGlowSprite(parent, localPos, color, size){
   return sprite;
 }
 
-// Glowing sunset sun
-const sun = new THREE.Mesh(new THREE.CircleGeometry(65,40), new THREE.MeshBasicMaterial({ color:0xff2a6d, transparent:true, opacity:0.95, fog:false }));
-sun.position.set(80, 130, -600);
-scene.add(sun);
-addGlowSprite(sun, new THREE.Vector3(0,0,-1), 0xff7a00, 7.5);
+// Realistic multi-layered sun with corona and lens flares
+const sunGroup = new THREE.Group();
+sunGroup.position.set(80, 125, -600);
+
+// Outer atmospheric corona (huge soft glow)
+function makeSunCoronaTexture() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0.0, 'rgba(255,220,160,0.7)');
+  g.addColorStop(0.15, 'rgba(255,160,60,0.4)');
+  g.addColorStop(0.35, 'rgba(255,100,40,0.15)');
+  g.addColorStop(0.6, 'rgba(200,50,80,0.05)');
+  g.addColorStop(1.0, 'rgba(100,20,60,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 256);
+  return new THREE.CanvasTexture(c);
+}
+const coronaMat = new THREE.SpriteMaterial({ map: makeSunCoronaTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const corona = new THREE.Sprite(coronaMat);
+corona.scale.set(400, 400, 1);
+sunGroup.add(corona);
+
+// Mid glow ring
+const midGlowMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xff9040, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const midGlow = new THREE.Sprite(midGlowMat);
+midGlow.scale.set(180, 180, 1);
+sunGroup.add(midGlow);
+
+// Bright sun disc core
+const sunDisc = new THREE.Mesh(
+  new THREE.CircleGeometry(32, 48),
+  new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0.97, fog: false })
+);
+sunGroup.add(sunDisc);
+
+// Inner hot-white core glow
+const coreGlowMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const coreGlow = new THREE.Sprite(coreGlowMat);
+coreGlow.scale.set(80, 80, 1);
+coreGlow.position.z = 1;
+sunGroup.add(coreGlow);
+
+// Lens flare streaks (horizontal and vertical light spikes)
+function makeLensFlareTexture() {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  const ctx = c.getContext('2d');
+  // Horizontal streak
+  const hg = ctx.createLinearGradient(0, 128, 256, 128);
+  hg.addColorStop(0, 'rgba(255,200,100,0)'); hg.addColorStop(0.4, 'rgba(255,220,150,0.3)');
+  hg.addColorStop(0.5, 'rgba(255,255,240,0.6)'); hg.addColorStop(0.6, 'rgba(255,220,150,0.3)');
+  hg.addColorStop(1, 'rgba(255,200,100,0)');
+  ctx.fillStyle = hg; ctx.fillRect(0, 120, 256, 16);
+  // Vertical streak
+  const vg = ctx.createLinearGradient(128, 0, 128, 256);
+  vg.addColorStop(0, 'rgba(255,200,100,0)'); vg.addColorStop(0.4, 'rgba(255,220,150,0.2)');
+  vg.addColorStop(0.5, 'rgba(255,255,240,0.45)'); vg.addColorStop(0.6, 'rgba(255,220,150,0.2)');
+  vg.addColorStop(1, 'rgba(255,200,100,0)');
+  ctx.fillStyle = vg; ctx.fillRect(120, 0, 16, 256);
+  return new THREE.CanvasTexture(c);
+}
+const flareMat = new THREE.SpriteMaterial({ map: makeLensFlareTexture(), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const flareSprite = new THREE.Sprite(flareMat);
+flareSprite.scale.set(300, 300, 1);
+flareSprite.position.z = 2;
+sunGroup.add(flareSprite);
+
+// Small secondary lens artifacts along the sun axis
+[0.35, 0.55, 0.78].forEach((t, i) => {
+  const artifactColors = [0xff6040, 0x40c8ff, 0xff80d0];
+  const artifactMat = new THREE.SpriteMaterial({ map: glowTex, color: artifactColors[i], transparent: true, opacity: 0.15 + i * 0.05, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+  const artifact = new THREE.Sprite(artifactMat);
+  const size = 15 + i * 12;
+  artifact.scale.set(size, size, 1);
+  artifact.position.set(-t * 160, -t * 100, 3);
+  sunGroup.add(artifact);
+});
+
+scene.add(sunGroup);
 
 scene.add(new THREE.AmbientLight(0x2a1040, 0.65)); // Soft ambient purple-tinted light
 const sunLight = new THREE.DirectionalLight(0xff7a00, 1.6); // Warm orange directional light
@@ -412,46 +503,105 @@ gateBeam.position.set(startP.x, 6.6, startP.z);
 gateBeam.rotation.y = -Math.atan2(startT.x, startT.z);
 scene.add(gateBeam);
 
-/* distant mountain silhouette ring */
-function buildMountains(){
-  const segs = 64, radius = 460;
-  const positions=[], colors=[];
-  const colorLow = new THREE.Color(0x5c7250), colorHigh = new THREE.Color(0x8a9aa8);
-  for (let i=0;i<segs;i++){
-    const a0=(i/segs)*Math.PI*2, a1=((i+1)/segs)*Math.PI*2;
-    const h0=30+Math.sin(i*1.7)*18+Math.sin(i*0.6)*10;
-    const h1=30+Math.sin((i+1)*1.7)*18+Math.sin((i+1)*0.6)*10;
-    const x0=Math.cos(a0)*radius, z0=Math.sin(a0)*radius;
-    const x1=Math.cos(a1)*radius, z1=Math.sin(a1)*radius;
-    positions.push(x0,0,z0, x1,0,z1, x0,h0,z0);
-    positions.push(x1,0,z1, x1,h1,z1, x0,h0,z0);
-    for (let k=0;k<3;k++) colors.push(colorLow.r,colorLow.g,colorLow.b);
-    for (let k=0;k<3;k++) colors.push(colorHigh.r,colorHigh.g,colorHigh.b);
+/* distant mountain ranges — multi-ridge with atmospheric perspective and snow caps */
+function buildMountainRidge(radius, baseHeight, heightScale, segs, colorBase, colorPeak, colorSnow, snowLine, opacity, noiseA, noiseB, noiseC) {
+  const positions = [], colors = [];
+  const cBase = new THREE.Color(colorBase);
+  const cPeak = new THREE.Color(colorPeak);
+  const cSnow = new THREE.Color(colorSnow);
+  for (let i = 0; i < segs; i++) {
+    const a0 = (i / segs) * Math.PI * 2;
+    const a1 = ((i + 1) / segs) * Math.PI * 2;
+    // Compound noise for organic ridgeline
+    const h0 = baseHeight + (Math.sin(i * noiseA) * 0.5 + Math.sin(i * noiseB) * 0.3 + Math.sin(i * noiseC + 2.7) * 0.2) * heightScale;
+    const h1 = baseHeight + (Math.sin((i+1) * noiseA) * 0.5 + Math.sin((i+1) * noiseB) * 0.3 + Math.sin((i+1) * noiseC + 2.7) * 0.2) * heightScale;
+    const x0 = Math.cos(a0) * radius, z0 = Math.sin(a0) * radius;
+    const x1 = Math.cos(a1) * radius, z1 = Math.sin(a1) * radius;
+
+    positions.push(x0, 0, z0, x1, 0, z1, x0, h0, z0);
+    positions.push(x1, 0, z1, x1, h1, z1, x0, h0, z0);
+
+    // Color: blend from base at bottom to peak at top
+    const assignColor = (h) => {
+      const t = THREE.MathUtils.clamp(h / (baseHeight + heightScale), 0, 1);
+      return new THREE.Color().copy(cBase).lerp(cPeak, t);
+    };
+    // Bottom verts get base color, top verts get height-dependent color
+    for (let k = 0; k < 2; k++) { colors.push(cBase.r, cBase.g, cBase.b); }
+    const c0 = assignColor(h0);
+    colors.push(c0.r, c0.g, c0.b);
+    colors.push(cBase.r, cBase.g, cBase.b);
+    const c1 = assignColor(h1);
+    colors.push(c1.r, c1.g, c1.b);
+    colors.push(c0.r, c0.g, c0.b);
   }
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors,3));
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.computeVertexNormals();
-  return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors:true, fog:false, side:THREE.DoubleSide }));
+  return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    vertexColors: true, fog: false, side: THREE.DoubleSide,
+    transparent: opacity < 1, opacity: opacity
+  }));
 }
-scene.add(buildMountains());
 
-/* drifting cloud layer for sky depth */
-function makeCloudTexture(){
-  const c = document.createElement('canvas'); c.width=256; c.height=64;
+// Back ridge (far, misty, bluish) — tallest peaks
+scene.add(buildMountainRidge(520, 50, 55, 96, 0x2a2040, 0x5a4878, 0xc8c0d8, 80, 0.6, 1.3, 0.47, 2.1));
+// Mid ridge (medium distance, purplish)
+scene.add(buildMountainRidge(470, 35, 42, 80, 0x3a2848, 0x6a4870, 0xd0c8d8, 60, 0.75, 1.7, 0.6, 1.4));
+// Front ridge (closest, darkest, most detailed silhouette)
+scene.add(buildMountainRidge(440, 22, 30, 72, 0x1a1428, 0x3a2840, 0xb0a8c0, 42, 0.9, 2.1, 0.9, 0.55));
+
+/* volumetric cloud system — multiple layers at different altitudes */
+function makeCloudLayerTexture(density, blobCount, blobSize, alpha) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
   const ctx = c.getContext('2d');
-  for (let i=0;i<10;i++){
-    const g = ctx.createRadialGradient(Math.random()*256,32,4, Math.random()*256,32,60);
-    g.addColorStop(0,'rgba(255,255,255,0.5)'); g.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=g; ctx.fillRect(0,0,256,64);
+  for (let i = 0; i < blobCount; i++) {
+    const x = Math.random() * 512;
+    const y = 20 + Math.random() * 88;
+    const rx = blobSize * (0.6 + Math.random() * 0.8);
+    const ry = rx * (0.25 + Math.random() * 0.35);
+    const g = ctx.createRadialGradient(x, y, rx * 0.1, x, y, rx);
+    g.addColorStop(0, `rgba(255,235,215,${alpha})`);
+    g.addColorStop(0.4, `rgba(255,200,170,${alpha * 0.5})`);
+    g.addColorStop(1, 'rgba(255,180,140,0)');
+    ctx.save();
+    ctx.scale(1, ry / rx);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y * (rx / ry), rx, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
-  return new THREE.CanvasTexture(c);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
 }
-const cloudTex = makeCloudTexture();
-cloudTex.wrapS = THREE.RepeatWrapping;
-const cloudMesh = new THREE.Mesh(new THREE.PlaneGeometry(1800,900), new THREE.MeshBasicMaterial({ map:cloudTex, transparent:true, fog:false, depthWrite:false }));
-cloudMesh.position.set(0,220,-300);
+
+// High wispy cirrus layer
+const cirrusTex = makeCloudLayerTexture(8, 18, 80, 0.25);
+const cirrusMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(2400, 800),
+  new THREE.MeshBasicMaterial({ map: cirrusTex, transparent: true, fog: false, depthWrite: false, blending: THREE.NormalBlending })
+);
+cirrusMesh.position.set(0, 280, -400);
+scene.add(cirrusMesh);
+
+// Mid-altitude cumulus layer
+const cumulusTex = makeCloudLayerTexture(12, 25, 60, 0.35);
+const cloudMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(2000, 700),
+  new THREE.MeshBasicMaterial({ map: cumulusTex, transparent: true, fog: false, depthWrite: false })
+);
+cloudMesh.position.set(0, 200, -350);
 scene.add(cloudMesh);
+
+// Low warm haze layer near horizon
+const hazeTex = makeCloudLayerTexture(6, 30, 100, 0.18);
+const hazeMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(2600, 500),
+  new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, fog: false, depthWrite: false })
+);
+hazeMesh.position.set(0, 120, -500);
+scene.add(hazeMesh);
 
 /* roadside trees — rounded green canopy, brown trunk */
 function buildTrees(){
@@ -1383,7 +1533,10 @@ function animate(now){
   lastT = now;
   dt = Math.min(dt, 0.05);
 
-  cloudMesh.material.map.offset.x += dt*0.004;
+  // Drift cloud layers at different speeds for parallax
+  cirrusMesh.material.map.offset.x += dt * 0.002;
+  cloudMesh.material.map.offset.x += dt * 0.004;
+  hazeMesh.material.map.offset.x += dt * 0.001;
 
   if (raceStarted && !raceOver){
     raceTime += dt;
