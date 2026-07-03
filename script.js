@@ -1045,25 +1045,26 @@ function handleOrientation(e) {
                       (screen.orientation && screen.orientation.type.includes('landscape'));
 
   if (isLandscape) {
-    // In landscape mode, 'beta' tracks the steering tilt (tipping left/right like a steering wheel)
-    // Identify clockwise vs counter-clockwise landscape mode orientation mapping
+    // In landscape mode, 'beta' tracks the steering tilt
     const orientationAngle = window.orientation !== undefined ? window.orientation : 
                              (screen.orientation && screen.orientation.angle ? screen.orientation.angle : 90);
-    const directionFactor = (orientationAngle === 90) ? 1 : -1;
+    
+    // Inverted directionFactor to match your phone's holding position
+    const directionFactor = (orientationAngle === 90) ? -1 : 1;
 
     let targetBeta = e.beta;
     if (targetBeta === null || targetBeta === undefined) return;
 
-    // Normalize beta around 0 depending on holding angle (standard steering tilt sits around 90 or -90)
+    // Normalize beta around 0 depending on holding angle
     let tilt = targetBeta * directionFactor;
     if (Math.abs(tilt) > 45) {
       tilt = tilt > 0 ? tilt - 90 : tilt + 90;
     }
     val = tilt;
   } else {
-    // Fallback for portrait mode where 'gamma' handles left/right tilt
+    // Fallback for portrait mode where 'gamma' handles left/right tilt (also inverted to match)
     if (e.gamma === null || e.gamma === undefined) return;
-    val = e.gamma;
+    val = -e.gamma; 
   }
 
   // 2. Map and scale sensor values to steering boundaries (-1.0 to 1.0)
