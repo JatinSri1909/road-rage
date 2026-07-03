@@ -1763,7 +1763,10 @@ function animate(now){
 
   if (countdown > 0) {
     player.speed = 0;
-    if(bots) bots.forEach(b => b.speed = 0);
+    i// Using 'typeof' prevents a ReferenceError if 'bots' doesn't exist
+    if (typeof bots !== 'undefined' && Array.isArray(bots)) {
+      bots.forEach(b => { if (b) b.speed = 0; });
+    }
   }
 
   if (raceStarted && !raceOver){
