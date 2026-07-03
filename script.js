@@ -1578,8 +1578,9 @@ function updateHUD(dt){
   posLineEl.textContent = ordinal(rank);
 
   const kmh = Math.abs(player.speed) * 3.6;
-  speedNumEl.textContent = Math.round(kmh);
-  const frac = THREE.MathUtils.clamp(kmh / (CAR_MAX_SPEED*3.6), 0, 1);
+  const displayedSpeed = Math.min(Math.round(kmh), 150);
+  speedNumEl.textContent = displayedSpeed;
+  const frac = THREE.MathUtils.clamp(displayedSpeed / 150, 0, 1);
   const angle = -120 + frac*240;
   needleEl.style.transform = `translateX(-50%) rotate(${angle}deg)`;
 
@@ -1589,24 +1590,41 @@ function updateHUD(dt){
 }
 
 /* ============================= AUDIO ============================= */
-let audioCtx, osc, gainNode;
+let audioCtx, osc, osc2, gainNode;
 function initAudio(){
   try{
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     osc = audioCtx.createOscillator();
+    osc2 = audioCtx.createOscillator();
+    const filter = audioCtx.createBiquadFilter();
     gainNode = audioCtx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.value = 60;
+    osc.type = 'sine';
+    osc.frequency.value = 96;
+    osc2.type = 'triangle';
+    osc2.frequency.value = 192;
+    osc2.detune.value = -8;
+    filter.type = 'lowpass';
+    filter.frequency.value = 1180;
+    filter.Q.value = 0.55;
     gainNode.gain.value = 0.0;
-    osc.connect(gainNode).connect(audioCtx.destination);
+    osc.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gainNode).connect(audioCtx.destination);
     osc.start();
+    osc2.start();
   }catch(e){}
 }
 function updateAudio(){
   if (!osc) return;
-  const speedFrac = Math.abs(player.speed)/CAR_MAX_SPEED;
-  osc.frequency.value = 55 + speedFrac*160 + (player.boosting?60:0);
-  gainNode.gain.value = raceStarted && !raceOver ? 0.035 + speedFrac*0.05 + (player.boosting?0.02:0) : 0.0;
+  const speedFrac = THREE.MathUtils.clamp(Math.abs(player.speed)/CAR_MAX_SPEED, 0, 1);
+  const movingNow = raceStarted && !raceOver && speedFrac > 0.01;
+  const drivingNow = movingNow || input.gas || input.brake || input.boost || input.driveActive;
+  const targetFreq = 88 + speedFrac * 78 + (player.boosting ? 14 : 0);
+  const targetGain = movingNow ? (0.045 + speedFrac * 0.060) : 0.0;
+  const boostAccent = player.boosting ? 0.016 : 0.0;
+  osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.03);
+  osc2.frequency.setTargetAtTime(targetFreq * 2, audioCtx.currentTime, 0.03);
+  gainNode.gain.setTargetAtTime(drivingNow ? targetGain + boostAccent : 0.0, audioCtx.currentTime, 0.05);
 }
 
 /* ============================= COUNTDOWN / START ============================= */
