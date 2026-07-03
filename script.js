@@ -1669,6 +1669,57 @@ window.addEventListener('orientationchange', ()=>{
   }
 });
 
+/* ============================= EXIT RACE ON PORTRAIT / FULLSCREEN EXIT ============================= */
+
+function forceQuitToLanding() {
+  // Only trigger if a race is currently active
+  if (raceOver || !overlay.classList.contains('hidden')) return;
+
+  raceOver = true;
+  
+  // Bring back the landing menu overlay and hide the active racing HUD
+  overlay.classList.remove('hidden');
+  hud.classList.add('hidden');
+  startBtn.textContent = 'START RACE';
+
+  // Safely attempt to drop out of fullscreen mode if the browser is still in it
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen().catch(() => {});
+    }
+  }
+  
+  // Optional: If your game has a reset state function (like resetting car position), invoke it here
+  if (typeof resetGame === 'function') {
+    resetGame();
+  }
+}
+
+// 1. Detect when the user leaves fullscreen mode while racing
+document.addEventListener('fullscreenchange', () => {
+  if (overlay.classList.contains('hidden') && !raceOver && !document.fullscreenElement) {
+    forceQuitToLanding();
+  }
+});
+
+document.addEventListener('webkitfullscreenchange', () => {
+  if (overlay.classList.contains('hidden') && !raceOver && !document.webkitFullscreenElement) {
+    forceQuitToLanding();
+  }
+});
+
+// 2. Detect when the screen orientation switches to portrait mode while racing
+window.addEventListener('resize', () => {
+  if (overlay.classList.contains('hidden') && !raceOver) {
+    // Uses your built-in 'isLandscapeMode' helper function
+    if (typeof isLandscapeMode === 'function' && !isLandscapeMode()) {
+      forceQuitToLanding();
+    }
+  }
+});
+
 function checkFinish(){
   if (player.finished && !raceOver){
     raceOver = true;
