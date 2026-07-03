@@ -1099,43 +1099,56 @@ function bindHold(id, key){
 bindHold('btnDrift','drift');
 bindHold('btnNos','boost');
 
+const steerArea = document.getElementById('steerArea');
 const steerWheel = document.getElementById('steerWheel');
 const driveSwitch = document.getElementById('driveSwitch');
 
-function bindSteerWheel(el){
+// how many pixels of horizontal drag = full steering lock (independent of the wheel's visual size)
+const STEER_DRAG_RANGE = 62;
+
+function bindSteerWheel(hitEl, visualEl){
   let activePointer = null;
-  const updateFromEvent = ev=>{
-    const rect = el.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const steer = THREE.MathUtils.clamp((centerX - ev.clientX) / (rect.width / 2), -1, 1);
-    input.steer = steer;
-    input.steerActive = true;
-    el.style.setProperty('--wheel-angle', `${steer * 58}deg`);
+  let startX = 0;
+  let startSteer = 0;
+
+  const applyVisual = (steer)=>{
+    visualEl.style.setProperty('--wheel-angle', `${steer * 58}deg`);
   };
+
   const start = ev=>{
+    if (ev.target && ev.target.closest && ev.target.closest('#btnDrift')) return;
     ev.preventDefault();
     activePointer = ev.pointerId;
-    el.classList.add('active');
-    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
-    updateFromEvent(ev);
+    startX = ev.clientX;
+    startSteer = 0; // every new touch starts neutral, wherever the thumb lands
+    input.steer = 0;
+    input.steerActive = true;
+    visualEl.classList.remove('snap');
+    visualEl.classList.add('active');
+    if (hitEl.setPointerCapture) hitEl.setPointerCapture(ev.pointerId);
+    applyVisual(0);
   };
   const move = ev=>{
     if (activePointer !== ev.pointerId) return;
     ev.preventDefault();
-    updateFromEvent(ev);
+    const dx = startX - ev.clientX; // dragging left => positive steer (matches old left-button convention)
+    const steer = THREE.MathUtils.clamp(startSteer + dx / STEER_DRAG_RANGE, -1, 1);
+    input.steer = steer;
+    applyVisual(steer);
   };
   const end = ev=>{
     if (activePointer !== null && ev.pointerId !== activePointer) return;
     activePointer = null;
     input.steer = 0;
     input.steerActive = false;
-    el.classList.remove('active');
-    el.style.setProperty('--wheel-angle', '0deg');
+    visualEl.classList.remove('active');
+    visualEl.classList.add('snap');
+    applyVisual(0);
   };
-  el.addEventListener('pointerdown', start);
-  el.addEventListener('pointermove', move);
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
+  hitEl.addEventListener('pointerdown', start);
+  hitEl.addEventListener('pointermove', move);
+  hitEl.addEventListener('pointerup', end);
+  hitEl.addEventListener('pointercancel', end);
 }
 
 function bindPedalSlider(el, valueKey, activeKey){
@@ -1188,7 +1201,7 @@ function bindPedalSlider(el, valueKey, activeKey){
   el.addEventListener('pointercancel', end);
 }
 
-if (steerWheel) bindSteerWheel(steerWheel);
+if (steerArea && steerWheel) bindSteerWheel(steerArea, steerWheel);
 if (driveSwitch) bindPedalSlider(driveSwitch, 'driveValue', 'driveActive');
 
 /* ============================= HELPERS ============================= */
