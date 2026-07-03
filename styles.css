@@ -63,7 +63,9 @@ canvas { display:block; touch-action:none; }
 #overlay {
   position:fixed; inset:0; z-index:20;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  background:radial-gradient(ellipse at 50% 30%, #1a0f2e 0%, #05060a 70%);
+  background:radial-gradient(ellipse at 50% 30%, rgba(26,15,46,0.55) 0%, rgba(5,6,10,0.82) 80%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color:#e8ecf1; text-align:center; padding:24px;
 }
 #overlay h1 {

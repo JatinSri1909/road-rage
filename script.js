@@ -21,29 +21,24 @@ window.addEventListener('resize', () => {
 function makeSkyTexture(){
   const c = document.createElement('canvas'); c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  // Rich multi-stop atmospheric gradient
+  // Vibrant synthwave / retro cyberpunk gradient
   const g = ctx.createLinearGradient(0,0,0,512);
-  g.addColorStop(0.0,  '#020114'); // Deep space black
-  g.addColorStop(0.08, '#06031f'); // Midnight blue-black
-  g.addColorStop(0.18, '#0d0630'); // Dark indigo
-  g.addColorStop(0.30, '#1a0a42'); // Royal purple
-  g.addColorStop(0.42, '#3d0f5c'); // Deep magenta-purple
-  g.addColorStop(0.54, '#6e1266'); // Rich magenta
-  g.addColorStop(0.64, '#a41850'); // Crimson-rose
-  g.addColorStop(0.73, '#d4413a'); // Warm red
-  g.addColorStop(0.82, '#e87420'); // Amber orange
-  g.addColorStop(0.90, '#f5a623'); // Golden
-  g.addColorStop(0.96, '#ffd98e'); // Pale golden horizon
-  g.addColorStop(1.0,  '#fff4d6'); // Warm white horizon glow
+  g.addColorStop(0.0,  '#090022'); // Deep starless retro space (very dark purple-blue)
+  g.addColorStop(0.20, '#15003c'); // Midnight violet
+  g.addColorStop(0.42, '#3a0066'); // Royal neon purple
+  g.addColorStop(0.60, '#660077'); // Deep magenta
+  g.addColorStop(0.75, '#b30066'); // Vibrant hot pink
+  g.addColorStop(0.88, '#ff3300'); // Hot orange
+  g.addColorStop(0.95, '#ffaa00'); // Golden yellow
+  g.addColorStop(1.0,  '#ffe600'); // Neon yellow horizon
   ctx.fillStyle = g; ctx.fillRect(0,0,512,512);
 
-  // Subtle atmospheric scattering bands (horizontal haze streaks)
-  for (let i = 0; i < 30; i++) {
-    const y = 200 + Math.random() * 300;
-    const alpha = 0.02 + Math.random() * 0.06;
-    const hue = Math.random() < 0.5 ? '255,140,60' : '200,80,120';
-    ctx.fillStyle = `rgba(${hue},${alpha})`;
-    ctx.fillRect(0, y, 512, 1 + Math.random() * 3);
+  // Retro horizontal grid/haze line accents
+  for (let i = 0; i < 24; i++) {
+    const y = 280 + Math.random() * 220;
+    const alpha = 0.04 + Math.random() * 0.08;
+    ctx.fillStyle = `rgba(255, 0, 128, ${alpha})`;
+    ctx.fillRect(0, y, 512, 2 + Math.random() * 3);
   }
 
   const tex = new THREE.CanvasTexture(c);
@@ -51,16 +46,15 @@ function makeSkyTexture(){
   return tex;
 }
 scene.background = makeSkyTexture();
-scene.fog = new THREE.FogExp2(0x1a0a30, 0.0020); // Deep atmospheric purple fog
+scene.fog = new THREE.FogExp2(0x15003c, 0.0020); // Deep retro purple fog
 
 function makeEnvEquirect(){
   const c = document.createElement('canvas'); c.width = 128; c.height = 64;
   const ctx = c.getContext('2d');
   const g = ctx.createLinearGradient(0,0,0,64);
-  g.addColorStop(0.0, '#180533');
-  g.addColorStop(0.4, '#5c0c66');
-  g.addColorStop(0.7,'#c2185b');
-  g.addColorStop(1.0, '#ff7a00');
+  g.addColorStop(0.0, '#15003c');
+  g.addColorStop(0.5, '#b30066');
+  g.addColorStop(1.0, '#ffaa00');
   ctx.fillStyle = g; ctx.fillRect(0,0,128,64);
   return new THREE.CanvasTexture(c);
 }
@@ -90,80 +84,95 @@ function addGlowSprite(parent, localPos, color, size){
   return sprite;
 }
 
-// Realistic multi-layered sun with corona and lens flares
-const sunGroup = new THREE.Group();
-sunGroup.position.set(80, 125, -600);
-
-// Outer atmospheric corona (huge soft glow)
-function makeSunCoronaTexture() {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+// Retro sliced synthwave sun
+function makeRetroSunTexture() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-  g.addColorStop(0.0, 'rgba(255,220,160,0.7)');
-  g.addColorStop(0.15, 'rgba(255,160,60,0.4)');
-  g.addColorStop(0.35, 'rgba(255,100,40,0.15)');
-  g.addColorStop(0.6, 'rgba(200,50,80,0.05)');
-  g.addColorStop(1.0, 'rgba(100,20,60,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 256);
+  
+  const cx = 256, cy = 256, r = 240;
+  
+  // Create clipping path for the sun disc
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  
+  // Vibrant vertical gradient: hot neon pink to golden neon yellow
+  const g = ctx.createLinearGradient(0, cy - r, 0, cy + r);
+  g.addColorStop(0.0, '#ff007f'); // Hot neon pink
+  g.addColorStop(0.4, '#ff00aa'); // Neon magenta
+  g.addColorStop(0.7, '#ff5e00'); // Neon orange
+  g.addColorStop(1.0, '#ffff00'); // Neon yellow
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  
+  // Cut retro scanlines/horizontal bands into the bottom half of the sun
+  ctx.globalCompositeOperation = 'destination-out';
+  const numStripes = 12;
+  for (let i = 0; i < numStripes; i++) {
+    // Slices get progressively thicker towards the bottom
+    const progress = i / numStripes;
+    const stripeY = cy - 20 + progress * (r + 20);
+    const stripeHeight = 3 + progress * 15;
+    ctx.fillRect(0, stripeY, 512, stripeHeight);
+  }
+  
+  ctx.restore();
   return new THREE.CanvasTexture(c);
 }
-const coronaMat = new THREE.SpriteMaterial({ map: makeSunCoronaTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-const corona = new THREE.Sprite(coronaMat);
-corona.scale.set(400, 400, 1);
-sunGroup.add(corona);
 
-// Mid glow ring
-const midGlowMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xff9040, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-const midGlow = new THREE.Sprite(midGlowMat);
-midGlow.scale.set(180, 180, 1);
-sunGroup.add(midGlow);
+const sunGroup = new THREE.Group();
+sunGroup.position.set(80, 120, -600);
 
-// Bright sun disc core
+// Sliced sun mesh
+const retroSunTex = makeRetroSunTexture();
 const sunDisc = new THREE.Mesh(
-  new THREE.CircleGeometry(32, 48),
-  new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, opacity: 0.97, fog: false })
+  new THREE.PlaneGeometry(160, 160),
+  new THREE.MeshBasicMaterial({ map: retroSunTex, transparent: true, fog: false, depthWrite: false })
 );
 sunGroup.add(sunDisc);
 
-// Inner hot-white core glow
-const coreGlowMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xffffff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
-const coreGlow = new THREE.Sprite(coreGlowMat);
-coreGlow.scale.set(80, 80, 1);
-coreGlow.position.z = 1;
-sunGroup.add(coreGlow);
+// Soft surrounding hot pink retro glow
+const coronaMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xff007f, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const corona = new THREE.Sprite(coronaMat);
+corona.scale.set(320, 320, 1);
+corona.position.z = -1;
+sunGroup.add(corona);
 
-// Lens flare streaks (horizontal and vertical light spikes)
+// Outer golden aura ring
+const auraMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xffa000, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const aura = new THREE.Sprite(auraMat);
+aura.scale.set(450, 450, 1);
+aura.position.z = -2;
+sunGroup.add(aura);
+
+// Horizontal lens flare streak across the sun
 function makeLensFlareTexture() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 256;
   const ctx = c.getContext('2d');
-  // Horizontal streak
   const hg = ctx.createLinearGradient(0, 128, 256, 128);
-  hg.addColorStop(0, 'rgba(255,200,100,0)'); hg.addColorStop(0.4, 'rgba(255,220,150,0.3)');
-  hg.addColorStop(0.5, 'rgba(255,255,240,0.6)'); hg.addColorStop(0.6, 'rgba(255,220,150,0.3)');
-  hg.addColorStop(1, 'rgba(255,200,100,0)');
-  ctx.fillStyle = hg; ctx.fillRect(0, 120, 256, 16);
-  // Vertical streak
-  const vg = ctx.createLinearGradient(128, 0, 128, 256);
-  vg.addColorStop(0, 'rgba(255,200,100,0)'); vg.addColorStop(0.4, 'rgba(255,220,150,0.2)');
-  vg.addColorStop(0.5, 'rgba(255,255,240,0.45)'); vg.addColorStop(0.6, 'rgba(255,220,150,0.2)');
-  vg.addColorStop(1, 'rgba(255,200,100,0)');
-  ctx.fillStyle = vg; ctx.fillRect(120, 0, 16, 256);
+  hg.addColorStop(0, 'rgba(255,0,128,0)');
+  hg.addColorStop(0.4, 'rgba(255,50,180,0.25)');
+  hg.addColorStop(0.5, 'rgba(255,200,240,0.6)');
+  hg.addColorStop(0.6, 'rgba(255,50,180,0.25)');
+  hg.addColorStop(1, 'rgba(255,0,128,0)');
+  ctx.fillStyle = hg; ctx.fillRect(0, 122, 256, 12);
   return new THREE.CanvasTexture(c);
 }
-const flareMat = new THREE.SpriteMaterial({ map: makeLensFlareTexture(), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+const flareMat = new THREE.SpriteMaterial({ map: makeLensFlareTexture(), transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
 const flareSprite = new THREE.Sprite(flareMat);
-flareSprite.scale.set(300, 300, 1);
-flareSprite.position.z = 2;
+flareSprite.scale.set(320, 320, 1);
+flareSprite.position.z = 1;
 sunGroup.add(flareSprite);
 
-// Small secondary lens artifacts along the sun axis
-[0.35, 0.55, 0.78].forEach((t, i) => {
-  const artifactColors = [0xff6040, 0x40c8ff, 0xff80d0];
-  const artifactMat = new THREE.SpriteMaterial({ map: glowTex, color: artifactColors[i], transparent: true, opacity: 0.15 + i * 0.05, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+// Cyberpunk axial lens flare artifacts
+[0.3, 0.52, 0.72].forEach((t, i) => {
+  const artifactColors = [0xff00a0, 0x00e5ff, 0xffaa00];
+  const artifactMat = new THREE.SpriteMaterial({ map: glowTex, color: artifactColors[i], transparent: true, opacity: 0.12 + i * 0.04, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
   const artifact = new THREE.Sprite(artifactMat);
-  const size = 15 + i * 12;
+  const size = 12 + i * 10;
   artifact.scale.set(size, size, 1);
-  artifact.position.set(-t * 160, -t * 100, 3);
+  artifact.position.set(-t * 140, -t * 80, 2);
   sunGroup.add(artifact);
 });
 
@@ -553,55 +562,7 @@ scene.add(buildMountainRidge(470, 35, 42, 80, 0x3a2848, 0x6a4870, 0xd0c8d8, 60, 
 scene.add(buildMountainRidge(440, 22, 30, 72, 0x1a1428, 0x3a2840, 0xb0a8c0, 42, 0.9, 2.1, 0.9, 0.55));
 
 /* volumetric cloud system — multiple layers at different altitudes */
-function makeCloudLayerTexture(density, blobCount, blobSize, alpha) {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
-  const ctx = c.getContext('2d');
-  for (let i = 0; i < blobCount; i++) {
-    const x = Math.random() * 512;
-    const y = 20 + Math.random() * 88;
-    const rx = blobSize * (0.6 + Math.random() * 0.8);
-    const ry = rx * (0.25 + Math.random() * 0.35);
-    const g = ctx.createRadialGradient(x, y, rx * 0.1, x, y, rx);
-    g.addColorStop(0, `rgba(255,235,215,${alpha})`);
-    g.addColorStop(0.4, `rgba(255,200,170,${alpha * 0.5})`);
-    g.addColorStop(1, 'rgba(255,180,140,0)');
-    ctx.save();
-    ctx.scale(1, ry / rx);
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(x, y * (rx / ry), rx, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = THREE.RepeatWrapping;
-  return tex;
-}
 
-// High wispy cirrus layer
-const cirrusTex = makeCloudLayerTexture(8, 18, 80, 0.25);
-const cirrusMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(2400, 800),
-  new THREE.MeshBasicMaterial({ map: cirrusTex, transparent: true, fog: false, depthWrite: false, blending: THREE.NormalBlending })
-);
-cirrusMesh.position.set(0, 280, -400);
-scene.add(cirrusMesh);
-
-// Mid-altitude cumulus layer
-const cumulusTex = makeCloudLayerTexture(12, 25, 60, 0.35);
-const cloudMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(2000, 700),
-  new THREE.MeshBasicMaterial({ map: cumulusTex, transparent: true, fog: false, depthWrite: false })
-);
-cloudMesh.position.set(0, 200, -350);
-scene.add(cloudMesh);
-
-// Low warm haze layer near horizon
-const hazeTex = makeCloudLayerTexture(6, 30, 100, 0.18);
-const hazeMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(2600, 500),
-  new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, fog: false, depthWrite: false })
-);
-hazeMesh.position.set(0, 120, -500);
-scene.add(hazeMesh);
 
 /* roadside trees — rounded green canopy, brown trunk */
 function buildTrees(){
@@ -1533,10 +1494,7 @@ function animate(now){
   lastT = now;
   dt = Math.min(dt, 0.05);
 
-  // Drift cloud layers at different speeds for parallax
-  cirrusMesh.material.map.offset.x += dt * 0.002;
-  cloudMesh.material.map.offset.x += dt * 0.004;
-  hazeMesh.material.map.offset.x += dt * 0.001;
+
 
   if (raceStarted && !raceOver){
     raceTime += dt;
