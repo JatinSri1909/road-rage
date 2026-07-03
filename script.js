@@ -1049,7 +1049,18 @@ const aiCars = aiColors.map((c,idx)=>{
 const allCars = [player, ...aiCars];
 
 /* ============================= INPUT ============================= */
-const input = { left:false, right:false, gas:false, brake:false, drift:false, boost:false };
+const input = {
+  left:false,
+  right:false,
+  gas:false,
+  brake:false,
+  drift:false,
+  boost:false,
+  steer:0,
+  steerActive:false,
+  driveValue:0,
+  driveActive:false,
+};
 window.addEventListener('keydown', e=>{
   if (['ArrowLeft','a','A'].includes(e.key)) input.left = true;
   if (['ArrowRight','d','D'].includes(e.key)) input.right = true;
@@ -1068,21 +1079,118 @@ window.addEventListener('keyup', e=>{
 });
 function bindHold(id, key){
   const el = document.getElementById(id);
-  const on = ev=>{ ev.preventDefault(); input[key]=true; el.classList.add('active'); };
-  const off = ev=>{ ev.preventDefault(); input[key]=false; el.classList.remove('active'); };
-  el.addEventListener('touchstart', on, {passive:false});
-  el.addEventListener('touchend', off, {passive:false});
-  el.addEventListener('touchcancel', off, {passive:false});
-  el.addEventListener('mousedown', on);
-  el.addEventListener('mouseup', off);
-  el.addEventListener('mouseleave', off);
+  let activePointer = null;
+  const on = ev=>{
+    ev.preventDefault();
+    activePointer = ev.pointerId;
+    input[key] = true;
+    el.classList.add('active');
+    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
+  };
+  const off = ev=>{
+    if (activePointer !== null && ev.pointerId !== activePointer) return;
+    activePointer = null;
+    input[key] = false;
+    el.classList.remove('active');
+  };
+  el.addEventListener('pointerdown', on);
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointercancel', off);
 }
-bindHold('btnLeft','left');
-bindHold('btnRight','right');
-bindHold('btnGas','gas');
-bindHold('btnBrake','brake');
 bindHold('btnDrift','drift');
 bindHold('btnNos','boost');
+
+const steerWheel = document.getElementById('steerWheel');
+const driveSwitch = document.getElementById('driveSwitch');
+
+function bindSteerWheel(el){
+  let activePointer = null;
+  const updateFromEvent = ev=>{
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const steer = THREE.MathUtils.clamp((centerX - ev.clientX) / (rect.width / 2), -1, 1);
+    input.steer = steer;
+    input.steerActive = true;
+    el.style.setProperty('--wheel-angle', `${steer * 58}deg`);
+  };
+  const start = ev=>{
+    ev.preventDefault();
+    activePointer = ev.pointerId;
+    el.classList.add('active');
+    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
+    updateFromEvent(ev);
+  };
+  const move = ev=>{
+    if (activePointer !== ev.pointerId) return;
+    ev.preventDefault();
+    updateFromEvent(ev);
+  };
+  const end = ev=>{
+    if (activePointer !== null && ev.pointerId !== activePointer) return;
+    activePointer = null;
+    input.steer = 0;
+    input.steerActive = false;
+    el.classList.remove('active');
+    el.style.setProperty('--wheel-angle', '0deg');
+  };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+function bindPedalSlider(el, valueKey, activeKey){
+  let activePointer = null;
+  const updateFromEvent = ev=>{
+    const rect = el.getBoundingClientRect();
+    const value = THREE.MathUtils.clamp(((ev.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
+    const brakeValue = Math.max(0, -value);
+    const gasValue = Math.max(0, value);
+    input.driveValue = value;
+    input.driveActive = true;
+    el.setAttribute('aria-valuenow', String(Math.round(value * 100)));
+
+    const brakeFill = el.querySelector('.brakeFill');
+    const gasFill = el.querySelector('.gasFill');
+    const knob = el.querySelector('.driveKnob');
+    if (brakeFill) brakeFill.style.width = `${brakeValue * 50}%`;
+    if (gasFill) gasFill.style.width = `${gasValue * 50}%`;
+    if (knob) knob.style.left = `calc(50% + ${(value * 50).toFixed(2)}%)`;
+  };
+  const start = ev=>{
+    ev.preventDefault();
+    activePointer = ev.pointerId;
+    el.classList.add('active');
+    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
+    updateFromEvent(ev);
+  };
+  const move = ev=>{
+    if (activePointer !== ev.pointerId) return;
+    ev.preventDefault();
+    updateFromEvent(ev);
+  };
+  const end = ev=>{
+    if (activePointer !== null && ev.pointerId !== activePointer) return;
+    activePointer = null;
+    input.driveValue = 0;
+    input.driveActive = false;
+    el.classList.remove('active');
+    el.setAttribute('aria-valuenow', '0');
+    const brakeFill = el.querySelector('.brakeFill');
+    const gasFill = el.querySelector('.gasFill');
+    const knob = el.querySelector('.driveKnob');
+    if (brakeFill) brakeFill.style.width = '0';
+    if (gasFill) gasFill.style.width = '0';
+    if (knob) knob.style.left = '50%';
+  };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+if (steerWheel) bindSteerWheel(steerWheel);
+if (driveSwitch) bindPedalSlider(driveSwitch, 'driveValue', 'driveActive');
 
 /* ============================= HELPERS ============================= */
 function nearestSampleIdx(pos, startGuess){
@@ -1214,9 +1322,13 @@ function stepPlayer(dt){
   let vR = c.velocity.dot(rightDir);
 
   const boosting = input.boost && c.nitro > 0;
+  const steerInput = input.steerActive ? input.steer : ((input.left ? 1 : 0) - (input.right ? 1 : 0));
+  const driveInput = input.driveActive ? input.driveValue : 0;
+  const gasInput = input.driveActive ? Math.max(0, driveInput) : (input.gas ? 1 : 0);
+  const brakeInput = input.driveActive ? Math.max(0, -driveInput) : (input.brake ? 1 : 0);
   let accel = 0;
-  if (input.gas) accel += CAR_ACCEL*(boosting?1.7:1);
-  if (input.brake) accel += (vF > 1 ? -CAR_BRAKE : -CAR_REVERSE_ACCEL);
+  if (gasInput > 0) accel += CAR_ACCEL*(boosting?1.7:1) * gasInput;
+  if (brakeInput > 0) accel += (vF > 1 ? -CAR_BRAKE : -CAR_REVERSE_ACCEL) * brakeInput;
   vF += accel*dt;
 
   vF -= Math.sign(vF) * (CAR_DRAG*0.5 + Math.abs(vF)*0.03) * dt;
@@ -1228,7 +1340,7 @@ function stepPlayer(dt){
   const grip = input.drift ? GRIP_DRIFT : GRIP_NORMAL;
   vR -= vR * Math.min(1, grip*dt);
 
-  const steer = (input.left?1:0) - (input.right?1:0);
+  const steer = steerInput;
   const speedFactor = THREE.MathUtils.clamp(Math.abs(vF)/7, 0, 1);
   const turnDir = vF >= 0 ? 1 : -1;
   const turnRate = CAR_MAX_TURN * speedFactor * (input.drift?1.3:1);
@@ -1528,6 +1640,14 @@ function beginRace(){
 
 function resetRace(){
   raceTime = 0; raceOver = false;
+  input.steer = 0;
+  input.steerActive = false;
+  input.driveValue = 0;
+  input.driveActive = false;
+  const steerWheelEl = document.getElementById('steerWheel');
+  const driveSwitchEl = document.getElementById('driveSwitch');
+  if (steerWheelEl) steerWheelEl.style.setProperty('--wheel-angle', '0deg');
+  if (driveSwitchEl) driveSwitchEl.style.setProperty('--drive-value', '0');
   player.pos.copy(samplePts[0]); player.lastSampleIdx=0; player.maxSampleIdx=0;
   player.heading = Math.atan2(sampleTangents[0].x, sampleTangents[0].z);
   player.velocity.set(0,0,0);

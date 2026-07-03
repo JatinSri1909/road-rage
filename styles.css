@@ -37,7 +37,22 @@ canvas { display:block; touch-action:none; }
 #speedNum { position:absolute; bottom:20px; width:100%; text-align:center; font-family:'Orbitron',sans-serif; font-size:22px; color:#fff; }
 #speedUnit { position:absolute; bottom:8px; width:100%; text-align:center; font-size:10px; color:#7fd8e8; letter-spacing:2px; }
 
-#nitroWrap { bottom:174px; right:16px; width:150px; padding:6px 8px; }
+#topRightCluster {
+  position:absolute;
+  top:12px;
+  right:12px;
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  gap:10px;
+  pointer-events:none;
+}
+
+#nitroWrap {
+  position:static;
+  width:122px;
+  padding:6px 8px;
+}
 #nitroLabel { font-size:10px; color:#9fb0c0; letter-spacing:2px; margin-bottom:4px; }
 #nitroTrack { width:100%; height:8px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; }
 #nitroFill { height:100%; width:100%; background:linear-gradient(90deg,#7f2fff,#00e5ff); border-radius:4px; box-shadow:0 0 8px #00e5ff; transition:width 0.1s linear; }
@@ -54,12 +69,185 @@ canvas { display:block; touch-action:none; }
   border-radius:50%; box-shadow:0 0 14px rgba(0,229,255,0.08);
 }
 .btn:active, .btn.active { background:rgba(0,229,255,0.28); border-color:#00e5ff; box-shadow:0 0 20px rgba(0,229,255,0.5); }
-#btnLeft  { left:14px; bottom:104px; width:60px; height:60px; font-size:24px; }
-#btnRight { left:80px; bottom:104px; width:60px; height:60px; font-size:24px; }
-#btnDrift { left:14px; bottom:174px; width:56px; height:56px; font-size:10px; color:#ffb020; border-color:rgba(255,176,32,0.4); }
-#btnBrake { right:94px; bottom:104px; width:62px; height:62px; font-size:14px; color:#ffb020; border-color:rgba(255,176,32,0.4); }
-#btnGas   { right:14px; bottom:104px; width:78px; height:78px; font-size:14px; color:#00ffa2; border-color:rgba(0,255,162,0.4); }
-#btnNos   { right:16px; bottom:250px; width:56px; height:56px; font-size:10px; color:#7f2fff; border-color:rgba(127,47,255,0.5); }
+
+#steerArea {
+  position:absolute;
+  left:12px;
+  bottom:12px;
+  width:196px;
+  height:206px;
+  pointer-events:none;
+}
+
+#steerWheel {
+  position:absolute;
+  left:0;
+  bottom:0;
+  width:136px;
+  height:136px;
+  border-radius:50%;
+  background: radial-gradient(circle at 50% 50%, rgba(11,14,20,0.95) 0%, rgba(7,8,12,0.95) 65%, rgba(0,229,255,0.12) 100%);
+  border:1px solid rgba(0,229,255,0.34);
+  box-shadow: 0 0 18px rgba(0,229,255,0.1), inset 0 0 24px rgba(0,229,255,0.08);
+  pointer-events:auto;
+  touch-action:none;
+  overflow:hidden;
+  --wheel-angle: 0deg;
+}
+
+#steerWheel.active {
+  border-color:#00e5ff;
+  box-shadow: 0 0 24px rgba(0,229,255,0.22), inset 0 0 28px rgba(0,229,255,0.12);
+}
+
+.wheelRing {
+  position:absolute;
+  inset:14px;
+  border-radius:50%;
+  border:5px solid rgba(0,229,255,0.6);
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,0.04);
+}
+
+.wheelSpoke {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:38px;
+  height:4px;
+  background:linear-gradient(90deg, rgba(0,229,255,0), rgba(0,229,255,0.9), rgba(0,229,255,0));
+  transform-origin:center left;
+  transform: translate(-2px, -2px) rotate(var(--wheel-angle));
+  transition: transform 0.08s linear;
+}
+.wheelSpokeA { transform: translate(-2px, -2px) rotate(calc(var(--wheel-angle) + 0deg)); }
+.wheelSpokeB { transform: translate(-2px, -2px) rotate(calc(var(--wheel-angle) + 60deg)); }
+.wheelSpokeC { transform: translate(-2px, -2px) rotate(calc(var(--wheel-angle) - 60deg)); }
+
+.wheelHub {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:26px;
+  height:26px;
+  margin:-13px 0 0 -13px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #d8feff 0%, #00e5ff 40%, #0b1721 100%);
+  box-shadow:0 0 12px rgba(0,229,255,0.5);
+}
+
+#btnDrift {
+  left:14px;
+  bottom:154px;
+  width:70px;
+  height:42px;
+  font-size:11px;
+  color:#ffb020;
+  border-color:rgba(255,176,32,0.4);
+  border-radius:16px;
+}
+
+#driveSwitchWrap {
+  position:absolute;
+  right:14px;
+  bottom:12px;
+  width:182px;
+  height:86px;
+  pointer-events:none;
+}
+
+#driveSwitch {
+  position:relative;
+  width:100%;
+  height:100%;
+  pointer-events:auto;
+  touch-action:none;
+  --drive-value: 0;
+  border-radius:22px;
+  background:linear-gradient(135deg, rgba(13,15,20,0.82), rgba(7,8,12,0.88));
+  border:1px solid rgba(0,229,255,0.34);
+  box-shadow:0 0 18px rgba(0,229,255,0.08), inset 0 0 20px rgba(0,229,255,0.05);
+  overflow:hidden;
+}
+
+.driveTrack {
+  position:absolute;
+  left:14px;
+  right:14px;
+  top:50%;
+  height:16px;
+  transform:translateY(-50%);
+  border-radius:999px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.08);
+}
+
+.driveCenter {
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:2px;
+  height:34px;
+  transform:translate(-50%, -50%);
+  background:rgba(255,255,255,0.22);
+  box-shadow:0 0 10px rgba(0,229,255,0.18);
+}
+
+.driveFill {
+  position:absolute;
+  top:50%;
+  height:16px;
+  transform:translateY(-50%);
+  border-radius:999px;
+}
+
+.driveFill.brakeFill {
+  right:50%;
+  width:0;
+  background:linear-gradient(90deg, rgba(255,176,32,0.15), rgba(255,176,32,0.95));
+}
+
+.driveFill.gasFill {
+  left:50%;
+  width:0;
+  background:linear-gradient(90deg, rgba(0,255,162,0.95), rgba(0,229,255,0.18));
+}
+
+.driveKnob {
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:42px;
+  height:42px;
+  margin-top:-21px;
+  margin-left:-21px;
+  border-radius:14px;
+  background:rgba(10,12,16,0.96);
+  border:1px solid rgba(0,229,255,0.38);
+  box-shadow:0 0 14px rgba(0,229,255,0.15), inset 0 0 12px rgba(255,255,255,0.05);
+}
+
+.driveLabels {
+  position:absolute;
+  left:14px;
+  right:14px;
+  bottom:8px;
+  display:flex;
+  justify-content:space-between;
+  font-family:'Orbitron',sans-serif;
+  font-size:10px;
+  letter-spacing:1.5px;
+  color:#9fb0c0;
+}
+
+#btnNos {
+  position:static;
+  width:70px;
+  height:70px;
+  font-size:11px;
+  color:#7f2fff;
+  border-color:rgba(127,47,255,0.5);
+  border-radius:22px;
+}
 
 #overlay {
   position:fixed; inset:0; z-index:20;
@@ -121,48 +309,53 @@ body.mobile-device #touchControls { display:block; }
     touch-action: none;
   }
 
-  #btnLeft, #btnRight {
-    left: 14px;
-    width: min(22vw, 88px);
-    height: min(22vw, 88px);
-    font-size: clamp(20px, 4.8vw, 30px);
+  #steerArea {
+    left: 10px;
+    bottom: 10px;
+    width: 186px;
+    height: 198px;
   }
 
-  #btnLeft { bottom: calc(16px + env(safe-area-inset-bottom)); }
-  #btnRight { left: calc(16px + min(24vw, 100px)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+  #steerWheel {
+    width: 126px;
+    height: 126px;
+  }
 
   #btnDrift {
-    left: 14px;
-    bottom: calc(16px + min(24vw, 100px) + env(safe-area-inset-bottom));
-    width: min(20vw, 76px);
-    height: min(20vw, 76px);
-    font-size: 11px;
-  }
-
-  #btnGas {
-    right: 14px;
-    bottom: calc(16px + env(safe-area-inset-bottom));
-    width: min(28vw, 120px);
-    height: min(28vw, 120px);
-    font-size: 15px;
-    border-radius: 28px;
-  }
-
-  #btnBrake {
-    right: 16px;
-    bottom: calc(18px + min(32vw, 134px) + env(safe-area-inset-bottom));
-    width: min(22vw, 88px);
-    height: min(22vw, 88px);
-    font-size: 13px;
-    border-radius: 22px;
-  }
-
-  #btnNos {
-    right: 16px;
-    bottom: calc(22px + min(54vw, 220px) + env(safe-area-inset-bottom));
-    width: min(18vw, 72px);
-    height: min(18vw, 72px);
+    left: 12px;
+    bottom: 144px;
+    width: 66px;
+    height: 40px;
     font-size: 10px;
+  }
+
+  #topRightCluster {
+    right: 10px;
+    top: 10px;
+    gap: 8px;
+  }
+
+  #nitroWrap {
+    width: 118px;
+    padding: 5px 7px;
+  }
+
+  #driveSwitchWrap {
+    right: 10px;
+    bottom: 10px;
+    width: 164px;
+    height: 76px;
+  }
+
+  #driveSwitch {
+    border-radius: 18px;
+  }
+
+  .driveKnob {
+    width: 38px;
+    height: 38px;
+    margin-top:-19px;
+    margin-left:-19px;
   }
 
   #gaugeWrap {
@@ -182,17 +375,113 @@ body.mobile-device #touchControls { display:block; }
     font-size: 18px;
   }
 
-  #nitroWrap {
-    right: 10px;
-    bottom: 140px;
-    width: 128px;
-  }
-
   #minimapWrap {
     left: 10px;
     bottom: 10px;
     width: 112px;
     height: 112px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  #topLeft {
+    top: 10px;
+    left: 96px;
+    padding: 6px 9px;
+    max-width: 30vw;
+  }
+
+  #lapLine {
+    font-size: 13px;
+  }
+
+  #posLineText {
+    font-size: 9px;
+  }
+
+  #timeLine {
+    font-size: 10px;
+  }
+
+  #minimapWrap {
+    top: 10px;
+    left: 10px;
+    bottom: auto;
+    width: 76px;
+    height: 76px;
+    padding: 3px;
+  }
+
+  #gaugeWrap {
+    display: none;
+  }
+
+  #touchControls {
+    display:block;
+  }
+
+  #steerArea {
+    left: 10px;
+    bottom: 10px;
+    width: 178px;
+    height: 186px;
+  }
+
+  #steerWheel {
+    width: 118px;
+    height: 118px;
+  }
+
+  #btnDrift {
+    left: 12px;
+    bottom: 132px;
+    width: 64px;
+    height: 38px;
+    font-size: 10px;
+  }
+
+  #driveSwitchWrap {
+    right: 10px;
+    bottom: 10px;
+    width: 166px;
+    height: 76px;
+  }
+
+  #driveSwitch {
+    border-radius: 18px;
+  }
+
+  .driveKnob {
+    width: 38px;
+    height: 38px;
+    margin-top:-19px;
+    margin-left:-19px;
+  }
+
+  #topRightCluster {
+    right: 10px;
+    top: 10px;
+    gap: 8px;
+  }
+
+  #nitroWrap {
+    width: 110px;
+  }
+
+  #gaugeWrap {
+    right: 10px;
+    bottom: 10px;
+    width: 114px;
+    height: 114px;
+  }
+
+  #gaugeFace {
+    width: 100px;
+    height: 100px;
+  }
+
+  #nitroWrap {
+    width: 108px;
   }
 }
 
