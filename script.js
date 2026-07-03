@@ -13,11 +13,7 @@ function getViewportSize(){
   return { width, height };
 }
 function resizeRenderer(){
-  const { width, height } = getViewportSize();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileDevice ? 1.5 : 2));
-  renderer.setSize(width, height, false);
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
+  renderer.setSize(width, height);
 }
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileDevice ? 1.5 : 2));
 renderer.shadowMap.enabled = true;
