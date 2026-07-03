@@ -1,5 +1,5 @@
-* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; }
-html,body { width:100%; height:100%; overflow:hidden; background:#05060a; font-family:'Rajdhani',sans-serif; }
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; -webkit-user-select:none; user-select:none; }
+html,body { width:100%; height:100dvh; overflow:hidden; background:#05060a; font-family:'Rajdhani',sans-serif; }
 canvas { display:block; touch-action:none; }
 
 #hud { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10; font-family:'Rajdhani', sans-serif; }
@@ -9,6 +9,7 @@ canvas { display:block; touch-action:none; }
   background:linear-gradient(135deg, rgba(13,15,20,0.75), rgba(13,15,20,0.55));
   border:1px solid rgba(0,229,255,0.35);
   border-radius:10px;
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   box-shadow: 0 0 18px rgba(0,229,255,0.08), inset 0 0 20px rgba(0,229,255,0.03);
 }
@@ -44,7 +45,7 @@ canvas { display:block; touch-action:none; }
 #minimapWrap { bottom:16px; left:16px; width:130px; height:130px; padding:4px; }
 #minimapCanvas { width:100%; height:100%; border-radius:6px; }
 
-#touchControls { position:absolute; bottom:0; left:0; width:100%; height:100%; pointer-events:none; }
+#touchControls { position:absolute; bottom:0; left:0; width:100%; height:100%; pointer-events:none; display:none; }
 .btn {
   position:absolute; pointer-events:auto;
   display:flex; align-items:center; justify-content:center; flex-direction:column;
@@ -64,8 +65,8 @@ canvas { display:block; touch-action:none; }
   position:fixed; inset:0; z-index:20;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   background:radial-gradient(ellipse at 50% 30%, rgba(26,15,46,0.55) 0%, rgba(5,6,10,0.82) 80%);
-  backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   color:#e8ecf1; text-align:center; padding:24px;
 }
 #overlay h1 {
@@ -82,3 +83,126 @@ canvas { display:block; touch-action:none; }
 #finishStats { margin-top:18px; font-size:16px; color:#00e5ff; letter-spacing:1px; }
 #finishStats div { margin-top:6px; }
 .hidden { display:none !important; }
+
+body.mobile-device #touchControls { display:block; }
+
+@media (hover: hover) and (pointer: fine) {
+  #touchControls { display:none !important; }
+}
+
+@media (pointer: coarse), (max-width: 900px) {
+  #overlay {
+    padding: clamp(16px, 4vw, 28px);
+  }
+
+  #overlay h1 {
+    font-size: clamp(30px, 8vw, 42px);
+  }
+
+  #overlay .rules {
+    max-width: 92vw;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  #startBtn {
+    width: min(92vw, 360px);
+    padding: 16px 24px;
+  }
+
+  #touchControls {
+    display:block;
+    pointer-events:none;
+  }
+
+  #touchControls .btn {
+    border-radius: 22px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 18px rgba(0,229,255,0.08);
+    touch-action: none;
+  }
+
+  #btnLeft, #btnRight {
+    left: 14px;
+    width: min(22vw, 88px);
+    height: min(22vw, 88px);
+    font-size: clamp(20px, 4.8vw, 30px);
+  }
+
+  #btnLeft { bottom: calc(16px + env(safe-area-inset-bottom)); }
+  #btnRight { left: calc(16px + min(24vw, 100px)); bottom: calc(16px + env(safe-area-inset-bottom)); }
+
+  #btnDrift {
+    left: 14px;
+    bottom: calc(16px + min(24vw, 100px) + env(safe-area-inset-bottom));
+    width: min(20vw, 76px);
+    height: min(20vw, 76px);
+    font-size: 11px;
+  }
+
+  #btnGas {
+    right: 14px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    width: min(28vw, 120px);
+    height: min(28vw, 120px);
+    font-size: 15px;
+    border-radius: 28px;
+  }
+
+  #btnBrake {
+    right: 16px;
+    bottom: calc(18px + min(32vw, 134px) + env(safe-area-inset-bottom));
+    width: min(22vw, 88px);
+    height: min(22vw, 88px);
+    font-size: 13px;
+    border-radius: 22px;
+  }
+
+  #btnNos {
+    right: 16px;
+    bottom: calc(22px + min(54vw, 220px) + env(safe-area-inset-bottom));
+    width: min(18vw, 72px);
+    height: min(18vw, 72px);
+    font-size: 10px;
+  }
+
+  #gaugeWrap {
+    right: 10px;
+    bottom: 10px;
+    width: 128px;
+    height: 128px;
+  }
+
+  #gaugeFace {
+    width: 112px;
+    height: 112px;
+  }
+
+  #speedNum {
+    bottom: 14px;
+    font-size: 18px;
+  }
+
+  #nitroWrap {
+    right: 10px;
+    bottom: 140px;
+    width: 128px;
+  }
+
+  #minimapWrap {
+    left: 10px;
+    bottom: 10px;
+    width: 112px;
+    height: 112px;
+  }
+}
+
+@media (orientation: portrait) and (pointer: coarse) {
+  #overlay .rules::after {
+    content: 'Landscape mode is required. Rotate your phone before starting.';
+    display:block;
+    margin-top:12px;
+    color:#ffb020;
+    font-family:'Orbitron',sans-serif;
+    letter-spacing:1px;
+  }
+}

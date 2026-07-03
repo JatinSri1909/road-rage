@@ -1,10 +1,25 @@
 (function(){
 "use strict";
 
+const isMobileDevice = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+document.body.classList.toggle('mobile-device', isMobileDevice);
+document.body.classList.toggle('desktop-device', !isMobileDevice);
+
 /* ============================= SETUP ============================= */
-const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobileDevice, powerPreference:'high-performance' });
+function getViewportSize(){
+  const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+  const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  return { width, height };
+}
+function resizeRenderer(){
+  const { width, height } = getViewportSize();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileDevice ? 1.5 : 2));
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileDevice ? 1.5 : 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -13,10 +28,12 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth/window.innerHeight, 0.1, 2500);
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  resizeRenderer();
 });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resizeRenderer);
+}
+resizeRenderer();
 
 function makeSkyTexture(){
   const c = document.createElement('canvas'); c.width = 512; c.height = 512;
@@ -1486,6 +1503,28 @@ const startBtn = document.getElementById('startBtn');
 const countdownEl = document.getElementById('countdown');
 const hud = document.getElementById('hud');
 const finishStats = document.getElementById('finishStats');
+let pendingMobileStart = false;
+
+function isLandscapeMode(){
+  return window.matchMedia('(orientation: landscape)').matches;
+}
+
+async function enterMobilePresentation(){
+  if (!isMobileDevice) return;
+  if (document.fullscreenElement == null && document.documentElement.requestFullscreen) {
+    try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  }
+  if (screen.orientation && screen.orientation.lock) {
+    try { await screen.orientation.lock('landscape'); } catch (e) {}
+  }
+}
+
+function beginRace(){
+  overlay.classList.add('hidden');
+  finishStats.innerHTML = '';
+  resetRace();
+  runCountdown();
+}
 
 function resetRace(){
   raceTime = 0; raceOver = false;
@@ -1539,14 +1578,33 @@ function runCountdown(){
   }, 800);
 }
 
-startBtn.addEventListener('click', ()=>{
+async function handleStart(){
   if (!audioCtx) initAudio();
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  overlay.classList.add('hidden');
-  finishStats.innerHTML = '';
-  resetRace();
-  runCountdown();
-}, {passive:true});
+
+  if (isMobileDevice) {
+    await enterMobilePresentation();
+    if (!isLandscapeMode()) {
+      pendingMobileStart = true;
+      finishStats.innerHTML = '<div>Rotate to landscape to start.</div>';
+      overlay.classList.remove('hidden');
+      return;
+    }
+  }
+
+  pendingMobileStart = false;
+  beginRace();
+}
+
+startBtn.addEventListener('click', handleStart, { passive:true });
+
+window.addEventListener('orientationchange', ()=>{
+  if (!pendingMobileStart) return;
+  if (isLandscapeMode()) {
+    pendingMobileStart = false;
+    setTimeout(beginRace, 150);
+  }
+});
 
 function checkFinish(){
   if (player.finished && !raceOver){
