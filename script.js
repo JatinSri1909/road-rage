@@ -975,8 +975,6 @@ const input = {
   boost:false,
   steer:0,
   steerActive:false,
-  driveValue:0,
-  driveActive:false,
 };
 
 // Keyboard
@@ -1030,18 +1028,37 @@ bindHold('btnBrake','brake');
 let gyroEnabled = false;
 let gyroOffset = 0;
 let gyroRaw = 0;
+let gyroSmoothed = 0;
+let gyroCalibrated = false;
 
 function handleOrientation(e) {
-  if (!e.gamma) return;
-  // gamma: left/right tilt (-90 to 90)
+  // CRITICAL FIX: e.gamma can be 0 (flat). Only reject null/undefined.
+  if (e.gamma === null || e.gamma === undefined) return;
+  
+  // Some devices emit 0,0,0 when sensors are warming up. Ignore those ghost events.
+  if (e.alpha === 0 && e.beta === 0 && e.gamma === 0) return;
+  
   gyroRaw = e.gamma;
-  let val = (gyroRaw - gyroOffset) / 25; // sensitivity
+  
+  // Auto-calibrate on first valid reading so the current hold angle becomes "center"
+  if (!gyroCalibrated) {
+    gyroOffset = gyroRaw;
+    gyroCalibrated = true;
+  }
+  
+  // Sensitivity: ~25 degrees of tilt = full steering lock
+  let val = (gyroRaw - gyroOffset) / 25;
   val = THREE.MathUtils.clamp(val, -1, 1);
-  input.steer = val;
-  input.steerActive = Math.abs(val) > 0.05;
+  
+  // Smooth the input to reduce sensor jitter
+  gyroSmoothed += (val - gyroSmoothed) * 0.15;
+  
+  input.steer = gyroSmoothed;
+  input.steerActive = Math.abs(gyroSmoothed) > 0.04;
 }
 
 async function requestGyroPermission() {
+  // iOS 13+ requires explicit permission request inside a user gesture
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
     try {
       const response = await DeviceOrientationEvent.requestPermission();
@@ -1050,9 +1067,10 @@ async function requestGyroPermission() {
         window.addEventListener('deviceorientation', handleOrientation);
       }
     } catch (e) {
-      console.warn('Gyro permission denied', e);
+      console.warn('Gyro permission request failed:', e);
     }
   } else {
+    // Android Chrome / others: no explicit permission needed, just add listener
     gyroEnabled = true;
     window.addEventListener('deviceorientation', handleOrientation);
   }
@@ -1060,6 +1078,7 @@ async function requestGyroPermission() {
 
 function calibrateGyro() {
   gyroOffset = gyroRaw;
+  gyroCalibrated = true;
 }
 
 /* ============================= HELPERS ============================= */
@@ -1486,7 +1505,7 @@ function updateAudio(){
   if (!osc) return;
   const speedFrac = THREE.MathUtils.clamp(Math.abs(player.speed)/CAR_MAX_SPEED, 0, 1);
   const movingNow = raceStarted && !raceOver && speedFrac > 0.01;
-  const drivingNow = movingNow || input.gas || input.brake || input.boost || input.driveActive;
+  const drivingNow = movingNow || input.gas || input.brake || input.boost;
   const targetFreq = 88 + speedFrac * 78 + (player.boosting ? 14 : 0);
   const targetGain = movingNow ? (0.045 + speedFrac * 0.060) : 0.0;
   const boostAccent = player.boosting ? 0.016 : 0.0;
@@ -1528,12 +1547,13 @@ function resetRace(){
   raceTime = 0; raceOver = false;
   input.steer = 0;
   input.steerActive = false;
-  input.driveValue = 0;
-  input.driveActive = false;
   input.gas = false;
   input.brake = false;
   input.drift = false;
   input.boost = false;
+  
+  gyroCalibrated = false;
+  gyroSmoothed = 0;
   
   player.pos.copy(samplePts[0]); player.lastSampleIdx=0; player.maxSampleIdx=0;
   player.heading = Math.atan2(sampleTangents[0].x, sampleTangents[0].z);
@@ -1579,7 +1599,6 @@ function runCountdown(){
       clearInterval(iv);
       countdownEl.style.display = 'none';
       raceStarted = true;
-      // Calibrate gyro when race starts so holding device naturally = center
       if (gyroEnabled) calibrateGyro();
     }
   }, 800);
