@@ -122,7 +122,7 @@ function makeRetroSunTexture() {
 }
 
 const sunGroup = new THREE.Group();
-sunGroup.position.set(80, 120, -600);
+sunGroup.position.set(80, 165, -600);
 
 // Sliced sun mesh
 const retroSunTex = makeRetroSunTexture();
@@ -203,7 +203,10 @@ const SAMPLES = 480;
 const samplePts = curve.getSpacedPoints(SAMPLES);
 const sampleTangents = [];
 for (let i=0;i<samplePts.length;i++){
-  sampleTangents.push(curve.getTangentAt(i/samplePts.length).normalize());
+  const nextPt = samplePts[(i+1)%samplePts.length];
+  const prevPt = samplePts[(i-1+samplePts.length)%samplePts.length];
+  const t = new THREE.Vector3().subVectors(nextPt, prevPt).normalize();
+  sampleTangents.push(t);
 }
 const UP = new THREE.Vector3(0,1,0);
 
@@ -261,7 +264,7 @@ function buildTerrain(){
   geo.rotateX(-Math.PI/2);
   const pos = geo.attributes.position;
   const trackSample = [];
-  for (let i=0;i<samplePts.length;i+=8) trackSample.push(samplePts[i]);
+  for (let i=0;i<samplePts.length;i+=2) trackSample.push(samplePts[i]);
   for (let i=0;i<pos.count;i++){
     const x = pos.getX(i), z = pos.getZ(i);
     let minD = Infinity;
@@ -292,7 +295,7 @@ for (let i=0;i<samplePts.length;i++){
   const right = new THREE.Vector3().crossVectors(t, UP).normalize();
   const l = p.clone().addScaledVector(right, -ROAD_W/2);
   const r = p.clone().addScaledVector(right, ROAD_W/2);
-  roadPositions.push(l.x,l.y+0.02,l.z, r.x,r.y+0.02,r.z);
+  roadPositions.push(l.x,l.y+0.08,l.z, r.x,r.y+0.08,r.z);
   roadUVs.push(0, i*0.2, 1, i*0.2);
 }
 for (let i=0;i<samplePts.length;i++){
@@ -340,7 +343,16 @@ function makeAsphaltTexture(){
 const asphaltTex = makeAsphaltTexture();
 asphaltTex.wrapS = asphaltTex.wrapT = THREE.RepeatWrapping;
 asphaltTex.repeat.set(2, samplePts.length*0.06);
-const roadMesh = new THREE.Mesh(roadGeo, new THREE.MeshStandardMaterial({ map:asphaltTex, roughness:0.75, metalness:0.1, bumpMap: asphaltTex, bumpScale: 0.015 }));
+const roadMesh = new THREE.Mesh(roadGeo, new THREE.MeshStandardMaterial({
+  map:asphaltTex,
+  roughness:0.75,
+  metalness:0.1,
+  bumpMap: asphaltTex,
+  bumpScale: 0.015,
+  polygonOffset: true,
+  polygonOffsetFactor: -1,
+  polygonOffsetUnits: -2
+}));
 roadMesh.receiveShadow = true;
 scene.add(roadMesh);
 
@@ -382,7 +394,7 @@ function buildCurbRibbon(side){
     const right = new THREE.Vector3().crossVectors(t, UP).normalize();
     const inP = p.clone().addScaledVector(right, side*inner);
     const outP = p.clone().addScaledVector(right, side*outer);
-    positions.push(inP.x,0.06,inP.z, outP.x,0.06,outP.z);
+    positions.push(inP.x,0.12,inP.z, outP.x,0.12,outP.z);
     uvs.push(0, i*0.5, 1, i*0.5);
   }
   for (let i=0;i<samplePts.length;i++){
@@ -395,7 +407,16 @@ function buildCurbRibbon(side){
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs,2));
   geo.setIndex(indices);
   geo.computeVertexNormals();
-  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map:curbTex, roughness:0.8, side:THREE.DoubleSide, bumpMap:curbTex, bumpScale:0.01 }));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    map:curbTex,
+    roughness:0.8,
+    side:THREE.DoubleSide,
+    bumpMap:curbTex,
+    bumpScale:0.01,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2
+  }));
   mesh.receiveShadow = true;
   return mesh;
 }
@@ -430,39 +451,69 @@ for (let s=0; s<14; s++){
   const skid = new THREE.Mesh(new THREE.PlaneGeometry(4+Math.random()*3, 4+Math.random()*3), skidMat);
   skid.rotation.x = -Math.PI/2;
   skid.rotation.z = Math.random()*Math.PI*2;
-  skid.position.set(pos.x, 0.03, pos.z);
+  skid.position.set(pos.x, 0.09, pos.z);
   scene.add(skid);
 }
 
-const dashGroup = new THREE.Group();
-const dashMat = new THREE.MeshBasicMaterial({ color:0xf2f2ee });
+const dashGeo = new THREE.PlaneGeometry(0.4,2.4);
+dashGeo.rotateX(-Math.PI/2);
+const dashMat = new THREE.MeshBasicMaterial({
+  color:0xf2f2ee,
+  polygonOffset: true,
+  polygonOffsetFactor: -2,
+  polygonOffsetUnits: -4
+});
+const dashCount = Math.floor(samplePts.length / 6);
+const dashMesh = new THREE.InstancedMesh(dashGeo, dashMat, dashCount);
+let dashIdx = 0;
+const dummyDash = new THREE.Object3D();
 for (let i=0;i<samplePts.length;i+=6){
+  if (dashIdx >= dashCount) break;
   const p = samplePts[i], t = sampleTangents[i];
-  const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.4,2.4), dashMat);
-  dash.rotation.x = -Math.PI/2;
-  dash.rotation.z = -Math.atan2(t.x, t.z);
-  dash.position.set(p.x, 0.05, p.z);
-  dashGroup.add(dash);
+  dummyDash.position.set(p.x, 0.14, p.z);
+  dummyDash.rotation.set(0, Math.atan2(t.x, t.z), 0);
+  dummyDash.scale.set(1, 1, 1);
+  dummyDash.updateMatrix();
+  dashMesh.setMatrixAt(dashIdx++, dummyDash.matrix);
 }
-scene.add(dashGroup);
+scene.add(dashMesh);
 
 // edge barriers: sparse red/white posts + continuous Armco-style guardrail
-const barrierGroup = new THREE.Group();
 const postGeo = new THREE.BoxGeometry(0.6,1.1,0.6);
+const redMat = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.6 });
+const greyMat = new THREE.MeshStandardMaterial({ color: 0xd8dcd8, roughness: 0.6 });
+
+const totalPosts = Math.floor(samplePts.length / 10) * 2;
+const halfPosts = Math.ceil(totalPosts / 2);
+
+const redPostMesh = new THREE.InstancedMesh(postGeo, redMat, halfPosts);
+const greyPostMesh = new THREE.InstancedMesh(postGeo, greyMat, halfPosts);
+redPostMesh.castShadow = redPostMesh.receiveShadow = true;
+greyPostMesh.castShadow = greyPostMesh.receiveShadow = true;
+
+let redIdx = 0, greyIdx = 0;
+const dummyPost = new THREE.Object3D();
+
 for (let i=0;i<samplePts.length;i+=10){
   const p = samplePts[i], t = sampleTangents[i];
   const right = new THREE.Vector3().crossVectors(t, UP).normalize();
-  const color = (Math.floor(i/10)%2===0) ? 0xd8dcd8 : 0xc0392b;
-  const mat = new THREE.MeshStandardMaterial({ color, roughness:0.6 });
+  const isRed = (Math.floor(i/10)%2===0);
+  
   [-1,1].forEach(side=>{
-    const post = new THREE.Mesh(postGeo, mat);
     const pos = p.clone().addScaledVector(right, side*(ROAD_W/2+1.2));
-    post.position.set(pos.x, 0.55, pos.z);
-    post.castShadow = true;
-    barrierGroup.add(post);
+    dummyPost.position.set(pos.x, 0.55, pos.z);
+    dummyPost.rotation.set(0, Math.atan2(t.x, t.z), 0);
+    dummyPost.scale.set(1, 1, 1);
+    dummyPost.updateMatrix();
+    if (isRed) {
+      if (redIdx < halfPosts) redPostMesh.setMatrixAt(redIdx++, dummyPost.matrix);
+    } else {
+      if (greyIdx < halfPosts) greyPostMesh.setMatrixAt(greyIdx++, dummyPost.matrix);
+    }
   });
 }
-scene.add(barrierGroup);
+scene.add(redPostMesh);
+scene.add(greyPostMesh);
 
 function buildGuardrail(side, dist, color, radius, height, metallic){
   const pts = [];
@@ -490,6 +541,7 @@ function makeGatePost(side){
   const post = new THREE.Mesh(new THREE.BoxGeometry(1,7,1), new THREE.MeshStandardMaterial({color:0x111318}));
   const pos = startP.clone().addScaledVector(startRight, side*(ROAD_W/2+1));
   post.position.set(pos.x, 3.5, pos.z);
+  post.rotation.y = Math.atan2(startT.x, startT.z);
   post.castShadow = true;
   return post;
 }
@@ -509,7 +561,7 @@ function makeCheckerTexture(){
 }
 const gateBeam = new THREE.Mesh(new THREE.BoxGeometry(ROAD_W+2,0.6,0.6), new THREE.MeshStandardMaterial({ map:makeCheckerTexture(), roughness:0.7 }));
 gateBeam.position.set(startP.x, 6.6, startP.z);
-gateBeam.rotation.y = -Math.atan2(startT.x, startT.z);
+gateBeam.rotation.y = Math.atan2(startT.x, startT.z);
 scene.add(gateBeam);
 
 /* distant mountain ranges — multi-ridge with atmospheric perspective and snow caps */
@@ -549,8 +601,9 @@ function buildMountainRidge(radius, baseHeight, heightScale, segs, colorBase, co
   geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.computeVertexNormals();
   return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-    vertexColors: true, fog: false, side: THREE.DoubleSide,
-    transparent: opacity < 1, opacity: opacity
+    vertexColors: true,
+    fog: true,
+    side: THREE.DoubleSide
   }));
 }
 
@@ -569,8 +622,8 @@ function buildTrees(){
   const spots = [];
   for (let i=0;i<samplePts.length;i+=14) spots.push(i);
   
-  const treeGroup = new THREE.Group();
-  
+  // Plan trees first
+  const plannedTrees = [];
   spots.forEach((i)=>{
     const p = samplePts[i], t = sampleTangents[i];
     const right = new THREE.Vector3().crossVectors(t, UP).normalize();
@@ -579,60 +632,86 @@ function buildTrees(){
       const dist = ROAD_W/2 + 4.5 + Math.random()*10;
       const pos = p.clone().addScaledVector(right, side*dist);
       const scale = 0.8 + Math.random()*0.6;
-      
-      const individualTree = new THREE.Group();
-      
-      // Trunk
-      const trunkHeight = 3.0 * scale;
-      const trunkGeo = new THREE.CylinderGeometry(0.15*scale, 0.24*scale, trunkHeight, 8);
-      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x422d1b, roughness: 0.95 });
-      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-      trunk.position.y = trunkHeight / 2;
-      trunk.castShadow = true;
-      trunk.receiveShadow = true;
-      individualTree.add(trunk);
-      
-      const leavesColors = [0x1e3f20, 0x2d4c22, 0x142a17]; // Dark organic forest greens
-      const leavesColor = leavesColors[Math.floor(Math.random() * leavesColors.length)];
-      const leavesMat = new THREE.MeshStandardMaterial({ color: leavesColor, roughness: 0.9 });
-      
-      // 50% chance of Pine / Conifer tree, 50% chance of rounded Deciduous tree
-      if (Math.random() < 0.5) {
-        // Pine Tree (stacked cones)
-        const conesCount = 3;
-        for (let c = 0; c < conesCount; c++) {
-          const coneGeo = new THREE.ConeGeometry(0.9 * scale * (1 - c*0.22), 1.5 * scale, 8);
-          const cone = new THREE.Mesh(coneGeo, leavesMat);
-          cone.position.y = trunkHeight + (c * 0.75 * scale);
-          cone.castShadow = true;
-          individualTree.add(cone);
-        }
-      } else {
-        // Deciduous Tree (cluster of overlapping spheres)
-        const canopyPositions = [
-          new THREE.Vector3(0, trunkHeight + 0.2*scale, 0),
-          new THREE.Vector3(0.4*scale, trunkHeight + 0.6*scale, 0.2*scale),
-          new THREE.Vector3(-0.4*scale, trunkHeight + 0.5*scale, -0.2*scale),
-          new THREE.Vector3(0.2*scale, trunkHeight + 0.8*scale, -0.4*scale),
-          new THREE.Vector3(-0.2*scale, trunkHeight + 0.9*scale, 0.3*scale),
-        ];
-        
-        canopyPositions.forEach((lPos, idx) => {
-          const size = (0.7 + Math.random()*0.3) * scale * (idx === 4 ? 0.6 : 0.9);
-          const sphereGeo = new THREE.SphereGeometry(size, 8, 8);
-          const leaves = new THREE.Mesh(sphereGeo, leavesMat);
-          leaves.position.copy(lPos);
-          leaves.castShadow = true;
-          individualTree.add(leaves);
-        });
-      }
-      
-      individualTree.position.copy(pos);
-      individualTree.rotation.y = Math.random()*Math.PI*2;
-      treeGroup.add(individualTree);
+      const type = Math.random() < 0.5 ? 'pine' : 'deciduous';
+      plannedTrees.push({ pos, scale, type, heading: Math.random()*Math.PI*2 });
     });
   });
-  scene.add(treeGroup);
+  
+  const totalTrees = plannedTrees.length;
+  if (totalTrees === 0) return;
+  
+  const trunkGeo = new THREE.CylinderGeometry(0.15, 0.24, 3.0, 8);
+  trunkGeo.translate(0, 1.5, 0); // shift geometry origin to base
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x422d1b, roughness: 0.95 });
+  const trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, totalTrees);
+  trunkMesh.castShadow = true;
+  trunkMesh.receiveShadow = true;
+  
+  let totalCones = 0;
+  let totalSpheres = 0;
+  plannedTrees.forEach(tree => {
+    if (tree.type === 'pine') totalCones += 3;
+    else totalSpheres += 5;
+  });
+  
+  const pineGeo = new THREE.ConeGeometry(0.9, 1.5, 8);
+  const pineMat = new THREE.MeshStandardMaterial({ color: 0x1e3f20, roughness: 0.9 });
+  const pineMesh = new THREE.InstancedMesh(pineGeo, pineMat, totalCones);
+  pineMesh.castShadow = true;
+  
+  const deciduousGeo = new THREE.SphereGeometry(1, 8, 8);
+  const deciduousMat = new THREE.MeshStandardMaterial({ color: 0x2d4c22, roughness: 0.9 });
+  const deciduousMesh = new THREE.InstancedMesh(deciduousGeo, deciduousMat, totalSpheres);
+  deciduousMesh.castShadow = true;
+  
+  let trunkIdx = 0, coneIdx = 0, sphereIdx = 0;
+  const dummy = new THREE.Object3D();
+  
+  plannedTrees.forEach(tree => {
+    const scale = tree.scale;
+    const trunkHeight = 3.0 * scale;
+    
+    // Set Trunk
+    dummy.position.copy(tree.pos);
+    dummy.rotation.set(0, tree.heading, 0);
+    dummy.scale.set(scale, scale, scale);
+    dummy.updateMatrix();
+    trunkMesh.setMatrixAt(trunkIdx++, dummy.matrix);
+    
+    if (tree.type === 'pine') {
+      // 3 cones
+      for (let c = 0; c < 3; c++) {
+        const coneScale = scale * (1 - c*0.22);
+        dummy.position.copy(tree.pos).setY(trunkHeight + (c * 0.75 * scale));
+        dummy.rotation.set(0, tree.heading, 0);
+        dummy.scale.set(coneScale, scale, coneScale);
+        dummy.updateMatrix();
+        pineMesh.setMatrixAt(coneIdx++, dummy.matrix);
+      }
+    } else {
+      // 5 spheres
+      const canopyPositions = [
+        new THREE.Vector3(0, trunkHeight + 0.2*scale, 0),
+        new THREE.Vector3(0.4*scale, trunkHeight + 0.6*scale, 0.2*scale),
+        new THREE.Vector3(-0.4*scale, trunkHeight + 0.5*scale, -0.2*scale),
+        new THREE.Vector3(0.2*scale, trunkHeight + 0.8*scale, -0.4*scale),
+        new THREE.Vector3(-0.2*scale, trunkHeight + 0.9*scale, 0.3*scale),
+      ];
+      canopyPositions.forEach((lPos, idx) => {
+        const size = (0.7 + Math.random()*0.3) * scale * (idx === 4 ? 0.6 : 0.9);
+        const worldPos = tree.pos.clone().add(lPos);
+        dummy.position.copy(worldPos);
+        dummy.rotation.set(0, tree.heading, 0);
+        dummy.scale.set(size, size, size);
+        dummy.updateMatrix();
+        deciduousMesh.setMatrixAt(sphereIdx++, dummy.matrix);
+      });
+    }
+  });
+  
+  scene.add(trunkMesh);
+  if (totalCones > 0) scene.add(pineMesh);
+  if (totalSpheres > 0) scene.add(deciduousMesh);
 }
 buildTrees();
 
