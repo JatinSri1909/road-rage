@@ -1099,110 +1099,106 @@ function bindHold(id, key){
 bindHold('btnDrift','drift');
 bindHold('btnNos','boost');
 
-const steerArea = document.getElementById('steerArea');
-const steerWheel = document.getElementById('steerWheel');
-const driveSwitch = document.getElementById('driveSwitch');
+const steerSlider = document.getElementById('steerSlider');
+const btnGas = document.getElementById('btnGas');
+const btnBrake = document.getElementById('btnBrake');
+const btnNosMobile = document.getElementById('btnNosMobile');
 
-// how many pixels of horizontal drag = full steering lock (independent of the wheel's visual size)
-const STEER_DRAG_RANGE = 62;
-
-function bindSteerWheel(hitEl, visualEl){
+// ===== STEERING SLIDER (horizontal) =====
+function bindSteerSlider(el){
   let activePointer = null;
-  let startX = 0;
-  let startSteer = 0;
 
-  const applyVisual = (steer)=>{
-    visualEl.style.setProperty('--wheel-angle', `${steer * 58}deg`);
-  };
-
-  const start = ev=>{
-    if (ev.target && ev.target.closest && ev.target.closest('#btnDrift')) return;
-    ev.preventDefault();
-    activePointer = ev.pointerId;
-    startX = ev.clientX;
-    startSteer = 0; // every new touch starts neutral, wherever the thumb lands
-    input.steer = 0;
-    input.steerActive = true;
-    visualEl.classList.remove('snap');
-    visualEl.classList.add('active');
-    if (hitEl.setPointerCapture) hitEl.setPointerCapture(ev.pointerId);
-    applyVisual(0);
-  };
-  const move = ev=>{
-    if (activePointer !== ev.pointerId) return;
-    ev.preventDefault();
-    const dx = startX - ev.clientX; // dragging left => positive steer (matches old left-button convention)
-    const steer = THREE.MathUtils.clamp(startSteer + dx / STEER_DRAG_RANGE, -1, 1);
-    input.steer = steer;
-    applyVisual(steer);
-  };
-  const end = ev=>{
-    if (activePointer !== null && ev.pointerId !== activePointer) return;
-    activePointer = null;
-    input.steer = 0;
-    input.steerActive = false;
-    visualEl.classList.remove('active');
-    visualEl.classList.add('snap');
-    applyVisual(0);
-  };
-  hitEl.addEventListener('pointerdown', start);
-  hitEl.addEventListener('pointermove', move);
-  hitEl.addEventListener('pointerup', end);
-  hitEl.addEventListener('pointercancel', end);
-}
-
-function bindPedalSlider(el, valueKey, activeKey){
-  let activePointer = null;
-  const updateFromEvent = ev=>{
+  const updateSteer = (ev) => {
     const rect = el.getBoundingClientRect();
     const value = THREE.MathUtils.clamp(((ev.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
-    const brakeValue = Math.max(0, -value);
-    const gasValue = Math.max(0, value);
-    input.driveValue = value;
-    input.driveActive = true;
+    
+    input.steer = value;
+    input.steerActive = true;
     el.setAttribute('aria-valuenow', String(Math.round(value * 100)));
 
-    const brakeFill = el.querySelector('.brakeFill');
-    const gasFill = el.querySelector('.gasFill');
-    const knob = el.querySelector('.driveKnob');
-    if (brakeFill) brakeFill.style.width = `${brakeValue * 50}%`;
-    if (gasFill) gasFill.style.width = `${gasValue * 50}%`;
+    // Update visual fills
+    const leftFill = el.querySelector('.steerLeftFill');
+    const rightFill = el.querySelector('.steerRightFill');
+    const knob = el.querySelector('.steerKnob');
+    
+    if (value < 0) {
+      // Steering left
+      if (leftFill) leftFill.style.width = `${Math.abs(value) * 50}%`;
+      if (rightFill) rightFill.style.width = '0';
+    } else {
+      // Steering right
+      if (leftFill) leftFill.style.width = '0';
+      if (rightFill) rightFill.style.width = `${value * 50}%`;
+    }
+    
     if (knob) knob.style.left = `calc(50% + ${(value * 50).toFixed(2)}%)`;
   };
-  const start = ev=>{
+
+  const start = (ev) => {
     ev.preventDefault();
     activePointer = ev.pointerId;
     el.classList.add('active');
     if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
-    updateFromEvent(ev);
+    updateSteer(ev);
   };
-  const move = ev=>{
+
+  const move = (ev) => {
     if (activePointer !== ev.pointerId) return;
     ev.preventDefault();
-    updateFromEvent(ev);
+    updateSteer(ev);
   };
-  const end = ev=>{
+
+  const end = (ev) => {
     if (activePointer !== null && ev.pointerId !== activePointer) return;
     activePointer = null;
-    input.driveValue = 0;
-    input.driveActive = false;
+    input.steer = 0;
+    input.steerActive = false;
     el.classList.remove('active');
     el.setAttribute('aria-valuenow', '0');
-    const brakeFill = el.querySelector('.brakeFill');
-    const gasFill = el.querySelector('.gasFill');
-    const knob = el.querySelector('.driveKnob');
-    if (brakeFill) brakeFill.style.width = '0';
-    if (gasFill) gasFill.style.width = '0';
+
+    const leftFill = el.querySelector('.steerLeftFill');
+    const rightFill = el.querySelector('.steerRightFill');
+    const knob = el.querySelector('.steerKnob');
+    if (leftFill) leftFill.style.width = '0';
+    if (rightFill) rightFill.style.width = '0';
     if (knob) knob.style.left = '50%';
   };
+
   el.addEventListener('pointerdown', start);
   el.addEventListener('pointermove', move);
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
 }
 
-if (steerArea && steerWheel) bindSteerWheel(steerArea, steerWheel);
-if (driveSwitch) bindPedalSlider(driveSwitch, 'driveValue', 'driveActive');
+// ===== GAS AND BRAKE BUTTONS =====
+function bindDriveButton(btnEl, inputKey){
+  let activePointer = null;
+
+  const start = (ev) => {
+    ev.preventDefault();
+    activePointer = ev.pointerId;
+    input[inputKey] = true;
+    btnEl.classList.add('active');
+    if (btnEl.setPointerCapture) btnEl.setPointerCapture(ev.pointerId);
+  };
+
+  const end = (ev) => {
+    if (activePointer !== null && ev.pointerId !== activePointer) return;
+    activePointer = null;
+    input[inputKey] = false;
+    btnEl.classList.remove('active');
+  };
+
+  btnEl.addEventListener('pointerdown', start);
+  btnEl.addEventListener('pointerup', end);
+  btnEl.addEventListener('pointercancel', end);
+}
+
+// Bind all new controls
+if (steerSlider) bindSteerSlider(steerSlider);
+if (btnGas) bindDriveButton(btnGas, 'gas');
+if (btnBrake) bindDriveButton(btnBrake, 'brake');
+if (btnNosMobile) bindHold('btnNosMobile', 'boost');
 
 /* ============================= HELPERS ============================= */
 function nearestSampleIdx(pos, startGuess){
@@ -1674,10 +1670,15 @@ function resetRace(){
   input.steerActive = false;
   input.driveValue = 0;
   input.driveActive = false;
-  const steerWheelEl = document.getElementById('steerWheel');
-  const driveSwitchEl = document.getElementById('driveSwitch');
-  if (steerWheelEl) steerWheelEl.style.setProperty('--wheel-angle', '0deg');
-  if (driveSwitchEl) driveSwitchEl.style.setProperty('--drive-value', '0');
+  const steerSliderEl = document.getElementById('steerSlider');
+  if (steerSliderEl) {
+    const knob = steerSliderEl.querySelector('.steerKnob');
+    const leftFill = steerSliderEl.querySelector('.steerLeftFill');
+    const rightFill = steerSliderEl.querySelector('.steerRightFill');
+    if (knob) knob.style.left = '50%';
+    if (leftFill) leftFill.style.width = '0';
+    if (rightFill) rightFill.style.width = '0';
+  }
   player.pos.copy(samplePts[0]); player.lastSampleIdx=0; player.maxSampleIdx=0;
   player.heading = Math.atan2(sampleTangents[0].x, sampleTangents[0].z);
   player.velocity.set(0,0,0);
