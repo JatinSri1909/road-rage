@@ -37,19 +37,17 @@ resizeRenderer();
 function makeSkyTexture(){
   const c = document.createElement('canvas'); c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  // Vibrant synthwave / retro cyberpunk gradient
   const g = ctx.createLinearGradient(0,0,0,512);
-  g.addColorStop(0.0,  '#090022'); // Deep starless retro space (very dark purple-blue)
-  g.addColorStop(0.20, '#15003c'); // Midnight violet
-  g.addColorStop(0.42, '#3a0066'); // Royal neon purple
-  g.addColorStop(0.60, '#660077'); // Deep magenta
-  g.addColorStop(0.75, '#b30066'); // Vibrant hot pink
-  g.addColorStop(0.88, '#ff3300'); // Hot orange
-  g.addColorStop(0.95, '#ffaa00'); // Golden yellow
-  g.addColorStop(1.0,  '#ffe600'); // Neon yellow horizon
+  g.addColorStop(0.0,  '#090022');
+  g.addColorStop(0.20, '#15003c');
+  g.addColorStop(0.42, '#3a0066');
+  g.addColorStop(0.60, '#660077');
+  g.addColorStop(0.75, '#b30066');
+  g.addColorStop(0.88, '#ff3300');
+  g.addColorStop(0.95, '#ffaa00');
+  g.addColorStop(1.0,  '#ffe600');
   ctx.fillStyle = g; ctx.fillRect(0,0,512,512);
 
-  // Retro horizontal grid/haze line accents
   for (let i = 0; i < 24; i++) {
     const y = 280 + Math.random() * 220;
     const alpha = 0.04 + Math.random() * 0.08;
@@ -62,7 +60,7 @@ function makeSkyTexture(){
   return tex;
 }
 scene.background = makeSkyTexture();
-scene.fog = new THREE.FogExp2(0x15003c, 0.0020); // Deep retro purple fog
+scene.fog = new THREE.FogExp2(0x15003c, 0.0020);
 
 function makeEnvEquirect(){
   const c = document.createElement('canvas'); c.width = 128; c.height = 64;
@@ -80,7 +78,6 @@ const pmremGenerator = new THREE.PMREMGenerator(renderer);
 scene.environment = pmremGenerator.fromEquirectangular(envEquirect).texture;
 pmremGenerator.dispose();
 
-// glow-sprite helper (fake bloom for emissive points) — defined early so sun can use it
 function makeGlowTexture(){
   const c = document.createElement('canvas'); c.width=32; c.height=32;
   const ctx = c.getContext('2d');
@@ -100,69 +97,52 @@ function addGlowSprite(parent, localPos, color, size){
   return sprite;
 }
 
-// Retro sliced synthwave sun
 function makeRetroSunTexture() {
   const c = document.createElement('canvas'); c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  
   const cx = 256, cy = 256, r = 240;
-  
-  // Create clipping path for the sun disc
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.clip();
-  
-  // Vibrant vertical gradient: hot neon pink to golden neon yellow
   const g = ctx.createLinearGradient(0, cy - r, 0, cy + r);
-  g.addColorStop(0.0, '#ff007f'); // Hot neon pink
-  g.addColorStop(0.4, '#ff00aa'); // Neon magenta
-  g.addColorStop(0.7, '#ff5e00'); // Neon orange
-  g.addColorStop(1.0, '#ffff00'); // Neon yellow
+  g.addColorStop(0.0, '#ff007f');
+  g.addColorStop(0.4, '#ff00aa');
+  g.addColorStop(0.7, '#ff5e00');
+  g.addColorStop(1.0, '#ffff00');
   ctx.fillStyle = g;
   ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-  
-  // Cut retro scanlines/horizontal bands into the bottom half of the sun
   ctx.globalCompositeOperation = 'destination-out';
   const numStripes = 12;
   for (let i = 0; i < numStripes; i++) {
-    // Slices get progressively thicker towards the bottom
     const progress = i / numStripes;
     const stripeY = cy - 20 + progress * (r + 20);
     const stripeHeight = 3 + progress * 15;
     ctx.fillRect(0, stripeY, 512, stripeHeight);
   }
-  
   ctx.restore();
   return new THREE.CanvasTexture(c);
 }
 
 const sunGroup = new THREE.Group();
 sunGroup.position.set(80, 165, -600);
-
-// Sliced sun mesh
 const retroSunTex = makeRetroSunTexture();
 const sunDisc = new THREE.Mesh(
   new THREE.PlaneGeometry(160, 160),
   new THREE.MeshBasicMaterial({ map: retroSunTex, transparent: true, fog: false, depthWrite: false })
 );
 sunGroup.add(sunDisc);
-
-// Soft surrounding hot pink retro glow
 const coronaMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xff007f, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
 const corona = new THREE.Sprite(coronaMat);
 corona.scale.set(320, 320, 1);
 corona.position.z = -1;
 sunGroup.add(corona);
-
-// Outer golden aura ring
 const auraMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xffa000, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
 const aura = new THREE.Sprite(auraMat);
 aura.scale.set(450, 450, 1);
 aura.position.z = -2;
 sunGroup.add(aura);
 
-// Horizontal lens flare streak across the sun
 function makeLensFlareTexture() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 256;
   const ctx = c.getContext('2d');
@@ -181,7 +161,6 @@ flareSprite.scale.set(320, 320, 1);
 flareSprite.position.z = 1;
 sunGroup.add(flareSprite);
 
-// Cyberpunk axial lens flare artifacts
 [0.3, 0.52, 0.72].forEach((t, i) => {
   const artifactColors = [0xff00a0, 0x00e5ff, 0xffaa00];
   const artifactMat = new THREE.SpriteMaterial({ map: glowTex, color: artifactColors[i], transparent: true, opacity: 0.12 + i * 0.04, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
@@ -194,8 +173,8 @@ sunGroup.add(flareSprite);
 
 scene.add(sunGroup);
 
-scene.add(new THREE.AmbientLight(0x2a1040, 0.65)); // Soft ambient purple-tinted light
-const sunLight = new THREE.DirectionalLight(0xff7a00, 1.6); // Warm orange directional light
+scene.add(new THREE.AmbientLight(0x2a1040, 0.65));
+const sunLight = new THREE.DirectionalLight(0xff7a00, 1.6);
 sunLight.position.set(80, 180, -100);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.set(2048,2048);
@@ -203,7 +182,7 @@ sunLight.shadow.camera.left = -220; sunLight.shadow.camera.right = 220;
 sunLight.shadow.camera.top = 220; sunLight.shadow.camera.bottom = -220;
 sunLight.shadow.camera.far = 500;
 scene.add(sunLight);
-scene.add(new THREE.HemisphereLight(0x5c0c66, 0x140520, 0.7)); // Sky magenta, ground dark purple
+scene.add(new THREE.HemisphereLight(0x5c0c66, 0x140520, 0.7));
 
 /* ============================= TRACK ============================= */
 const controlPts = [
@@ -226,7 +205,6 @@ for (let i=0;i<samplePts.length;i++){
 }
 const UP = new THREE.Vector3(0,1,0);
 
-// curvature per sample, used by AI to brake for corners
 const curvature = new Float32Array(SAMPLES);
 for (let i=0;i<SAMPLES;i++){
   const prev = sampleTangents[(i-6+SAMPLES)%SAMPLES];
@@ -237,14 +215,10 @@ for (let i=0;i<SAMPLES;i++){
 function makeGridTexture(){
   const c = document.createElement('canvas'); c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  
-  // Rich organic grass/dirt base gradient
   const g = ctx.createRadialGradient(256,256,0, 256,256,360);
-  g.addColorStop(0, '#1a3311'); // Dark grass green
-  g.addColorStop(1, '#0c1a08'); // Very dark forest ground
+  g.addColorStop(0, '#1a3311');
+  g.addColorStop(1, '#0c1a08');
   ctx.fillStyle = g; ctx.fillRect(0,0,512,512);
-  
-  // Add fine organic details (realistic grass tufts and soil noise)
   for (let i=0; i<9000; i++) {
     const x = Math.random()*512;
     const y = Math.random()*512;
@@ -253,8 +227,6 @@ function makeGridTexture(){
     ctx.fillStyle = `rgba(${green*0.35}, ${green}, ${green*0.25}, ${0.12 + Math.random()*0.2})`;
     ctx.fillRect(x, y, size, size);
   }
-  
-  // Add dark soil patches
   for (let i=0; i<100; i++) {
     const x = Math.random()*512;
     const y = Math.random()*512;
@@ -265,7 +237,6 @@ function makeGridTexture(){
     ctx.fillStyle = gSoil;
     ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
   }
-  
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(80,80);
@@ -273,7 +244,6 @@ function makeGridTexture(){
 }
 const gridTex = makeGridTexture();
 
-// rolling terrain: flat near the track, undulating further out
 function buildTerrain(){
   const size = 1000, seg = 70;
   const geo = new THREE.PlaneGeometry(size, size, seg, seg);
@@ -303,7 +273,6 @@ function buildTerrain(){
 }
 scene.add(buildTerrain());
 
-// road ribbon
 const roadPositions = [], roadUVs = [], roadIndices = [];
 for (let i=0;i<samplePts.length;i++){
   const p = samplePts[i];
@@ -329,15 +298,11 @@ function makeAsphaltTexture(){
   const c = document.createElement('canvas'); c.width=256; c.height=256;
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#1c1d22'; ctx.fillRect(0,0,256,256);
-  
-  // Asphalt grain/gravel texture
   for (let i=0;i<2500;i++){
     const shade = 15 + Math.random()*25;
     ctx.fillStyle = `rgba(${shade},${shade},${shade+4},0.25)`;
     ctx.fillRect(Math.random()*256, Math.random()*256, 1.5+Math.random()*1.5, 1.5+Math.random()*1.5);
   }
-  
-  // Subtle weather/skid marks built into the road base
   for (let i=0; i<8; i++) {
     ctx.strokeStyle = `rgba(10,10,12,${0.08 + Math.random()*0.12})`;
     ctx.lineWidth = 4 + Math.random()*12;
@@ -346,14 +311,11 @@ function makeAsphaltTexture(){
     ctx.lineTo(Math.random()*256 + (Math.random()-0.5)*40, 256);
     ctx.stroke();
   }
-  
-  // Fine concrete grain
   for (let i=0;i<3000;i++){
     const alpha = 0.05 + Math.random()*0.08;
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;
     ctx.fillRect(Math.random()*256, Math.random()*256, 1, 1);
   }
-  
   return new THREE.CanvasTexture(c);
 }
 const asphaltTex = makeAsphaltTexture();
@@ -375,14 +337,10 @@ scene.add(roadMesh);
 function makeCurbTexture(){
   const c = document.createElement('canvas'); c.width=64; c.height=256;
   const ctx = c.getContext('2d');
-  
-  // Alternate red/white blocks with concrete textures
   for (let block=0; block<2; block++) {
     const startY = block * 128;
-    ctx.fillStyle = block === 0 ? '#b81c2f' : '#dddedb'; // realistic red/white concrete colors
+    ctx.fillStyle = block === 0 ? '#b81c2f' : '#dddedb';
     ctx.fillRect(0, startY, 64, 128);
-    
-    // Add dirt and concrete grains
     for (let i=0; i<800; i++) {
       const x = Math.random()*64;
       const y = startY + Math.random()*128;
@@ -391,8 +349,6 @@ function makeCurbTexture(){
       ctx.fillStyle = `rgba(${shade},${shade},${shade},${0.05 + Math.random()*0.12})`;
       ctx.fillRect(x, y, size, size);
     }
-    
-    // Dark joints between blocks
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, startY, 64, 4);
   }
@@ -459,7 +415,7 @@ const skidTex = makeSkidTexture();
 const skidMat = new THREE.MeshBasicMaterial({ map:skidTex, transparent:true, depthWrite:false });
 for (let s=0; s<14; s++){
   const idx = Math.floor(Math.random()*samplePts.length);
-  if (idx < 20) continue; // keep the start straight clean
+  if (idx < 20) continue;
   const p = samplePts[idx], t = sampleTangents[idx];
   const right = new THREE.Vector3().crossVectors(t, UP).normalize();
   const lateral = (Math.random()-0.5)*ROAD_W*0.6;
@@ -494,7 +450,6 @@ for (let i=0;i<samplePts.length;i+=6){
 }
 scene.add(dashMesh);
 
-// edge barriers: sparse red/white posts + continuous Armco-style guardrail
 const postGeo = new THREE.BoxGeometry(0.6,1.1,0.6);
 const redMat = new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.6 });
 const greyMat = new THREE.MeshStandardMaterial({ color: 0xd8dcd8, roughness: 0.6 });
@@ -514,7 +469,6 @@ for (let i=0;i<samplePts.length;i+=10){
   const p = samplePts[i], t = sampleTangents[i];
   const right = new THREE.Vector3().crossVectors(t, UP).normalize();
   const isRed = (Math.floor(i/10)%2===0);
-  
   [-1,1].forEach(side=>{
     const pos = p.clone().addScaledVector(right, side*(ROAD_W/2+1.2));
     dummyPost.position.set(pos.x, 0.55, pos.z);
@@ -550,7 +504,6 @@ function buildGuardrail(side, dist, color, radius, height, metallic){
   scene.add(buildGuardrail(side, ROAD_W/2+1.2, 0xc0392b, 0.045, 1.05, false));
 });
 
-/* checkpoint arc + start/finish gate */
 const startP = samplePts[0], startT = sampleTangents[0];
 const startRight = new THREE.Vector3().crossVectors(startT, UP).normalize();
 function makeGatePost(side){
@@ -580,7 +533,6 @@ gateBeam.position.set(startP.x, 6.6, startP.z);
 gateBeam.rotation.y = Math.atan2(startT.x, startT.z);
 scene.add(gateBeam);
 
-/* distant mountain ranges — multi-ridge with atmospheric perspective and snow caps */
 function buildMountainRidge(radius, baseHeight, heightScale, segs, colorBase, colorPeak, colorSnow, snowLine, opacity, noiseA, noiseB, noiseC) {
   const positions = [], colors = [];
   const cBase = new THREE.Color(colorBase);
@@ -589,7 +541,6 @@ function buildMountainRidge(radius, baseHeight, heightScale, segs, colorBase, co
   for (let i = 0; i < segs; i++) {
     const a0 = (i / segs) * Math.PI * 2;
     const a1 = ((i + 1) / segs) * Math.PI * 2;
-    // Compound noise for organic ridgeline
     const h0 = baseHeight + (Math.sin(i * noiseA) * 0.5 + Math.sin(i * noiseB) * 0.3 + Math.sin(i * noiseC + 2.7) * 0.2) * heightScale;
     const h1 = baseHeight + (Math.sin((i+1) * noiseA) * 0.5 + Math.sin((i+1) * noiseB) * 0.3 + Math.sin((i+1) * noiseC + 2.7) * 0.2) * heightScale;
     const x0 = Math.cos(a0) * radius, z0 = Math.sin(a0) * radius;
@@ -598,12 +549,10 @@ function buildMountainRidge(radius, baseHeight, heightScale, segs, colorBase, co
     positions.push(x0, 0, z0, x1, 0, z1, x0, h0, z0);
     positions.push(x1, 0, z1, x1, h1, z1, x0, h0, z0);
 
-    // Color: blend from base at bottom to peak at top
     const assignColor = (h) => {
       const t = THREE.MathUtils.clamp(h / (baseHeight + heightScale), 0, 1);
       return new THREE.Color().copy(cBase).lerp(cPeak, t);
     };
-    // Bottom verts get base color, top verts get height-dependent color
     for (let k = 0; k < 2; k++) { colors.push(cBase.r, cBase.g, cBase.b); }
     const c0 = assignColor(h0);
     colors.push(c0.r, c0.g, c0.b);
@@ -623,22 +572,13 @@ function buildMountainRidge(radius, baseHeight, heightScale, segs, colorBase, co
   }));
 }
 
-// Back ridge (far, misty, bluish) — tallest peaks
 scene.add(buildMountainRidge(520, 50, 55, 96, 0x2a2040, 0x5a4878, 0xc8c0d8, 80, 0.6, 1.3, 0.47, 2.1));
-// Mid ridge (medium distance, purplish)
 scene.add(buildMountainRidge(470, 35, 42, 80, 0x3a2848, 0x6a4870, 0xd0c8d8, 60, 0.75, 1.7, 0.6, 1.4));
-// Front ridge (closest, darkest, most detailed silhouette)
 scene.add(buildMountainRidge(440, 22, 30, 72, 0x1a1428, 0x3a2840, 0xb0a8c0, 42, 0.9, 2.1, 0.9, 0.55));
 
-/* volumetric cloud system — multiple layers at different altitudes */
-
-
-/* roadside trees — rounded green canopy, brown trunk */
 function buildTrees(){
   const spots = [];
   for (let i=0;i<samplePts.length;i+=14) spots.push(i);
-  
-  // Plan trees first
   const plannedTrees = [];
   spots.forEach((i)=>{
     const p = samplePts[i], t = sampleTangents[i];
@@ -652,50 +592,39 @@ function buildTrees(){
       plannedTrees.push({ pos, scale, type, heading: Math.random()*Math.PI*2 });
     });
   });
-  
   const totalTrees = plannedTrees.length;
   if (totalTrees === 0) return;
-  
   const trunkGeo = new THREE.CylinderGeometry(0.15, 0.24, 3.0, 8);
-  trunkGeo.translate(0, 1.5, 0); // shift geometry origin to base
+  trunkGeo.translate(0, 1.5, 0);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x422d1b, roughness: 0.95 });
   const trunkMesh = new THREE.InstancedMesh(trunkGeo, trunkMat, totalTrees);
   trunkMesh.castShadow = true;
   trunkMesh.receiveShadow = true;
-  
   let totalCones = 0;
   let totalSpheres = 0;
   plannedTrees.forEach(tree => {
     if (tree.type === 'pine') totalCones += 3;
     else totalSpheres += 5;
   });
-  
   const pineGeo = new THREE.ConeGeometry(0.9, 1.5, 8);
   const pineMat = new THREE.MeshStandardMaterial({ color: 0x1e3f20, roughness: 0.9 });
   const pineMesh = new THREE.InstancedMesh(pineGeo, pineMat, totalCones);
   pineMesh.castShadow = true;
-  
   const deciduousGeo = new THREE.SphereGeometry(1, 8, 8);
   const deciduousMat = new THREE.MeshStandardMaterial({ color: 0x2d4c22, roughness: 0.9 });
   const deciduousMesh = new THREE.InstancedMesh(deciduousGeo, deciduousMat, totalSpheres);
   deciduousMesh.castShadow = true;
-  
   let trunkIdx = 0, coneIdx = 0, sphereIdx = 0;
   const dummy = new THREE.Object3D();
-  
   plannedTrees.forEach(tree => {
     const scale = tree.scale;
     const trunkHeight = 3.0 * scale;
-    
-    // Set Trunk
     dummy.position.copy(tree.pos);
     dummy.rotation.set(0, tree.heading, 0);
     dummy.scale.set(scale, scale, scale);
     dummy.updateMatrix();
     trunkMesh.setMatrixAt(trunkIdx++, dummy.matrix);
-    
     if (tree.type === 'pine') {
-      // 3 cones
       for (let c = 0; c < 3; c++) {
         const coneScale = scale * (1 - c*0.22);
         dummy.position.copy(tree.pos).setY(trunkHeight + (c * 0.75 * scale));
@@ -705,7 +634,6 @@ function buildTrees(){
         pineMesh.setMatrixAt(coneIdx++, dummy.matrix);
       }
     } else {
-      // 5 spheres
       const canopyPositions = [
         new THREE.Vector3(0, trunkHeight + 0.2*scale, 0),
         new THREE.Vector3(0.4*scale, trunkHeight + 0.6*scale, 0.2*scale),
@@ -724,14 +652,12 @@ function buildTrees(){
       });
     }
   });
-  
   scene.add(trunkMesh);
   if (totalCones > 0) scene.add(pineMesh);
   if (totalSpheres > 0) scene.add(deciduousMesh);
 }
 buildTrees();
 
-/* grandstands + billboards */
 function buildGrandstand(pos, faceAngle){
   const g = new THREE.Group();
   const tierMat = new THREE.MeshStandardMaterial({ color:0x9aa0a0, roughness:0.9 });
@@ -763,7 +689,7 @@ function makeBillboardTexture(text){
   ctx.fillStyle = '#f4f4f0'; ctx.fillRect(0,0,512,256);
   ctx.fillStyle = '#c0392b'; ctx.fillRect(0,0,512,14);
   ctx.fillStyle = '#1a5fb4'; ctx.fillRect(0,242,512,14);
-  ctx.fillStyle = '#1a1c22'; ctx.font = 'bold 56px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#1a1c22'; ctx.font = 'bold 56px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(text, 256, 128);
   return new THREE.CanvasTexture(c);
 }
@@ -790,7 +716,6 @@ billboardSpots.forEach((i, bi)=>{
   scene.add(buildBillboard(pos, -Math.atan2(t.x,t.z)+Math.PI/2, billboardTexts[bi]));
 });
 
-/* boost pads */
 const BOOST_PAD_IDX = [55, 150, 245, 340, 430];
 function makeBoostPadTexture(){
   const c = document.createElement('canvas'); c.width=64; c.height=128;
@@ -869,7 +794,6 @@ function createCarMesh(bodyColor, accentColor, carNumber){
   shell.castShadow = true;
   group.add(shell);
 
-  // racing stripe livery on hood + trunk (skips the canopy footprint)
   const stripeMat = new THREE.MeshStandardMaterial({ color:accentColor, metalness:0.3, roughness:0.4 });
   for (let sz=-1.9; sz<=1.9; sz+=0.34){
     if (Math.abs(sz) < 1.2) continue;
@@ -942,10 +866,7 @@ function createCarMesh(bodyColor, accentColor, carNumber){
     const wheelGroup = new THREE.Group();
     const disc = new THREE.Mesh(discGeo, discMat); disc.rotation.z = Math.PI/2; wheelGroup.add(disc);
     const w = new THREE.Mesh(wheelGeo, wheelMat); w.rotation.z = Math.PI/2; w.castShadow = true; wheelGroup.add(w);
-    
     const rim = new THREE.Mesh(rimGeo, chromeMat); rim.rotation.z = Math.PI/2; rim.position.x = Math.sign(pos[0])*0.2; wheelGroup.add(rim);
-    
-    // Add alloy wheel spokes for high visual realism
     const spokeGeo = new THREE.BoxGeometry(0.04, 0.44, 0.04);
     for (let s=0; s<5; s++){
       const spoke = new THREE.Mesh(spokeGeo, chromeMat);
@@ -953,14 +874,11 @@ function createCarMesh(bodyColor, accentColor, carNumber){
       spoke.position.x = Math.sign(pos[0])*0.22;
       wheelGroup.add(spoke);
     }
-    
-    // Add brake caliper for visual realism
     const caliperGeo = new THREE.BoxGeometry(0.12, 0.22, 0.12);
     const caliperMat = new THREE.MeshStandardMaterial({ color: 0xff1744, metalness: 0.8, roughness: 0.2 });
     const caliper = new THREE.Mesh(caliperGeo, caliperMat);
     caliper.position.set(-Math.sign(pos[0])*0.05, 0.22, 0);
     wheelGroup.add(caliper);
-
     wheelGroup.position.set(pos[0],pos[1],pos[2]);
     group.add(wheelGroup);
     wheels.push(wheelGroup);
@@ -1036,12 +954,12 @@ const aiCars = aiColors.map((c,idx)=>{
   st.pos = samplePts[startIdx].clone();
   st.lastSampleIdx = startIdx; st.maxSampleIdx = startIdx;
   st.heading = Math.atan2(sampleTangents[startIdx].x, sampleTangents[startIdx].z);
-  st.baseSpeed = 35 + idx*3.2 + Math.random()*5; // Increased base speed for higher competition
+  st.baseSpeed = 35 + idx*3.2 + Math.random()*5;
   st.lap = 0;
   st.laneOffset = (idx-1)*3.0;
   st.laneOffsetTarget = st.laneOffset;
   st.laneTimer = Math.random()*2;
-  st.crossedHalfway = true; // AI starts past the halfway point
+  st.crossedHalfway = true;
   scene.add(st.mesh);
   return st;
 });
@@ -1060,6 +978,8 @@ const input = {
   driveValue:0,
   driveActive:false,
 };
+
+// Keyboard
 window.addEventListener('keydown', e=>{
   if (['ArrowLeft','a','A'].includes(e.key)) input.left = true;
   if (['ArrowRight','d','D'].includes(e.key)) input.right = true;
@@ -1076,8 +996,11 @@ window.addEventListener('keyup', e=>{
   if (e.key === 'Shift') input.drift = false;
   if (e.key === ' ') input.boost = false;
 });
+
+// Touch buttons helper
 function bindHold(id, key){
   const el = document.getElementById(id);
+  if (!el) return;
   let activePointer = null;
   const on = ev=>{
     ev.preventDefault();
@@ -1095,106 +1018,49 @@ function bindHold(id, key){
   el.addEventListener('pointerdown', on);
   el.addEventListener('pointerup', off);
   el.addEventListener('pointercancel', off);
+  el.addEventListener('pointerleave', off);
 }
+
 bindHold('btnDrift','drift');
 bindHold('btnNos','boost');
+bindHold('btnGas','gas');
+bindHold('btnBrake','brake');
 
-const btnGas = document.getElementById('btnGas');
-const btnBrake = document.getElementById('btnBrake');
-const btnNosMobile = document.getElementById('btnNosMobile');
-
-// ===== GYROSCOPE STEERING =====
+/* ============================= GYROSCOPE STEERING ============================= */
 let gyroEnabled = false;
-let gyroAlpha = 0; // rotation around Z axis
-let gyroGamma = 0; // tilt left/right (what we need for steering)
-let gyroCalibration = 0;
+let gyroOffset = 0;
+let gyroRaw = 0;
 
-function initGyroscope(){
-  if (typeof DeviceOrientationEvent !== 'undefined') {
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      // iOS 13+ requires permission
-      DeviceOrientationEvent.requestPermission()
-        .then(permissionState => {
-          if (permissionState === 'granted') {
-            gyroEnabled = true;
-            window.addEventListener('deviceorientation', handleGyro);
-            console.log('Gyro enabled with permission');
-          }
-        })
-        .catch(console.error);
-    } else {
-      // Android and older iOS
-      gyroEnabled = true;
-      window.addEventListener('deviceorientation', handleGyro);
-      console.log('Gyro enabled (no permission needed)');
-    }
-  }
-}
-
-function handleGyro(event){
-  if (!gyroEnabled) return;
-  
+function handleOrientation(e) {
+  if (!e.gamma) return;
   // gamma: left/right tilt (-90 to 90)
-  // Negative = tilting phone to the left (steer left)
-  // Positive = tilting phone to the right (steer right)
-  gyroGamma = event.gamma || 0;
-  
-  // Map -45 to 45 degrees to -1 to 1 steer range
-  // Dead zone: small tilts don't register
-  let steerValue = 0;
-  const deadZone = 8; // degrees
-  
-  if (Math.abs(gyroGamma) > deadZone) {
-    steerValue = THREE.MathUtils.clamp(gyroGamma / 45, -1, 1);
+  gyroRaw = e.gamma;
+  let val = (gyroRaw - gyroOffset) / 25; // sensitivity
+  val = THREE.MathUtils.clamp(val, -1, 1);
+  input.steer = val;
+  input.steerActive = Math.abs(val) > 0.05;
+}
+
+async function requestGyroPermission() {
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try {
+      const response = await DeviceOrientationEvent.requestPermission();
+      if (response === 'granted') {
+        gyroEnabled = true;
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+    } catch (e) {
+      console.warn('Gyro permission denied', e);
+    }
+  } else {
+    gyroEnabled = true;
+    window.addEventListener('deviceorientation', handleOrientation);
   }
-  
-  input.steer = steerValue;
-  input.steerActive = true;
 }
 
-// Request gyroscope permission on first interaction
-function requestGyroOnInteraction(){
-  if (!gyroEnabled && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    initGyroscope();
-  }
+function calibrateGyro() {
+  gyroOffset = gyroRaw;
 }
-
-document.addEventListener('click', requestGyroOnInteraction, { once: true });
-document.addEventListener('touchstart', requestGyroOnInteraction, { once: true });
-
-// Auto-init for Android
-if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission !== 'function') {
-  initGyroscope();
-}
-
-// ===== GAS AND BRAKE BUTTONS =====
-function bindDriveButton(btnEl, inputKey){
-  let activePointer = null;
-
-  const start = (ev) => {
-    ev.preventDefault();
-    activePointer = ev.pointerId;
-    input[inputKey] = true;
-    btnEl.classList.add('active');
-    if (btnEl.setPointerCapture) btnEl.setPointerCapture(ev.pointerId);
-  };
-
-  const end = (ev) => {
-    if (activePointer !== null && ev.pointerId !== activePointer) return;
-    activePointer = null;
-    input[inputKey] = false;
-    btnEl.classList.remove('active');
-  };
-
-  btnEl.addEventListener('pointerdown', start);
-  btnEl.addEventListener('pointerup', end);
-  btnEl.addEventListener('pointercancel', end);
-}
-
-// Bind all new controls
-if (btnGas) bindDriveButton(btnGas, 'gas');
-if (btnBrake) bindDriveButton(btnBrake, 'brake');
-if (btnNosMobile) bindHold('btnNosMobile', 'boost');
 
 /* ============================= HELPERS ============================= */
 function nearestSampleIdx(pos, startGuess){
@@ -1215,12 +1081,9 @@ let raceTime = 0;
 function updateLapProgress(car){
   const { idx, dist } = nearestSampleIdx(car.pos, car.lastSampleIdx);
   car.maxSampleIdx = Math.max(car.maxSampleIdx, idx);
-  
-  // Mark halfway crossing to prevent cheating or collision-based lap skips
   if (idx > SAMPLES * 0.4 && idx < SAMPLES * 0.6) {
     car.crossedHalfway = true;
   }
-
   if (car.lastSampleIdx > SAMPLES*0.75 && idx < SAMPLES*0.15 && car.crossedHalfway){
     if (!car.finished){
       car.lap += 1;
@@ -1236,8 +1099,6 @@ function updateLapProgress(car){
   car.lastSampleIdx = idx;
   car.roadDist = dist;
   car.trackIdx = idx;
-  
-  // Prevent progress jumps if reversing across the start line before reaching halfway
   let displayIdx = idx;
   if (!car.crossedHalfway && idx > SAMPLES * 0.5) {
     displayIdx = 0;
@@ -1245,7 +1106,6 @@ function updateLapProgress(car){
   car.progress = (car.lap - 1) * SAMPLES + displayIdx;
 }
 
-/* car-to-car collision: momentum-based push-apart with speed loss and juice */
 let shakeTime = 0, shakeIntensity = 0;
 function triggerShake(t, i){ shakeTime = Math.max(shakeTime,t); shakeIntensity = Math.max(shakeIntensity,i); }
 
@@ -1326,10 +1186,18 @@ function stepPlayer(dt){
   let vR = c.velocity.dot(rightDir);
 
   const boosting = input.boost && c.nitro > 0;
-  const steerInput = input.steerActive ? input.steer : ((input.left ? 1 : 0) - (input.right ? 1 : 0));
-  const driveInput = input.driveActive ? input.driveValue : 0;
-  const gasInput = input.driveActive ? Math.max(0, driveInput) : (input.gas ? 1 : 0);
-  const brakeInput = input.driveActive ? Math.max(0, -driveInput) : (input.brake ? 1 : 0);
+  
+  // Steering: gyro first, then keyboard fallback
+  let steerInput = 0;
+  if (input.steerActive) {
+    steerInput = input.steer;
+  } else {
+    steerInput = (input.left ? 1 : 0) - (input.right ? 1 : 0);
+  }
+  
+  const gasInput = input.gas ? 1 : 0;
+  const brakeInput = input.brake ? 1 : 0;
+  
   let accel = 0;
   if (gasInput > 0) accel += CAR_ACCEL*(boosting?1.7:1) * gasInput;
   if (brakeInput > 0) accel += (vF > 1 ? -CAR_BRAKE : -CAR_REVERSE_ACCEL) * brakeInput;
@@ -1344,11 +1212,10 @@ function stepPlayer(dt){
   const grip = input.drift ? GRIP_DRIFT : GRIP_NORMAL;
   vR -= vR * Math.min(1, grip*dt);
 
-  const steer = steerInput;
   const speedFactor = THREE.MathUtils.clamp(Math.abs(vF)/7, 0, 1);
   const turnDir = vF >= 0 ? 1 : -1;
   const turnRate = CAR_MAX_TURN * speedFactor * (input.drift?1.3:1);
-  c.heading += steer*turnRate*dt*turnDir;
+  c.heading += steerInput*turnRate*dt*turnDir;
 
   c.velocity.copy(forwardDir).multiplyScalar(vF).addScaledVector(rightDir, vR);
   c.pos.addScaledVector(c.velocity, dt);
@@ -1373,7 +1240,7 @@ function stepPlayer(dt){
   c.mesh.position.set(c.pos.x,0,c.pos.z);
   c.mesh.rotation.y = c.heading;
   c.mesh.userData.wheels.forEach(w=> w.rotation.x -= vF*dt*0.6);
-  const tilt = -steer*speedFactor*(input.drift?0.1:0.06);
+  const tilt = -steerInput*speedFactor*(input.drift?0.1:0.06);
   c.mesh.rotation.z = THREE.MathUtils.lerp(c.mesh.rotation.z, tilt, 0.2);
 
   if (boosting) c.nitro = Math.max(0, c.nitro - 42*dt);
@@ -1431,9 +1298,8 @@ function stepAI(car, dt){
   const lookIdx = (idx+14) % SAMPLES;
   const curveFactor = THREE.MathUtils.clamp(1 - curvature[lookIdx]*1.15, 0.62, 1);
   const gap = (player.progress||0) - (car.progress||0);
-  const rubber = THREE.MathUtils.clamp(1 + gap/1400, 1.0, 1.15); // Slightly stronger rubberbanding
+  const rubber = THREE.MathUtils.clamp(1 + gap/1400, 1.0, 1.15);
 
-  // AI NOS Boosting logic: boost on straight sections if they have nitro
   const straightSection = curvature[lookIdx] < 0.015;
   if (straightSection && car.nitro > 25 && Math.random() < 0.1) {
     car.boosting = true;
@@ -1450,7 +1316,7 @@ function stepAI(car, dt){
   }
 
   const dynamicTarget = car.baseSpeed * curveFactor * rubber * (car.boosting ? 1.25 : 1.0);
-  car.speed = THREE.MathUtils.lerp(car.speed, dynamicTarget, dt*2.4); // Faster acceleration
+  car.speed = THREE.MathUtils.lerp(car.speed, dynamicTarget, dt*2.4);
 
   car.pos.x += Math.sin(car.heading)*car.speed*dt;
   car.pos.z += Math.cos(car.heading)*car.speed*dt;
@@ -1459,7 +1325,6 @@ function stepAI(car, dt){
   car.mesh.rotation.y = car.heading;
   car.mesh.userData.wheels.forEach(w=> w.rotation.x -= car.speed*dt*0.6);
 
-  // Spawn thruster particles for boosting AI cars
   if (car.boosting) {
     const forwardDir = new THREE.Vector3(Math.sin(car.heading), 0, Math.cos(car.heading));
     const rear = car.pos.clone().addScaledVector(forwardDir, -2.1);
@@ -1557,7 +1422,6 @@ const nitroFillEl = document.getElementById('nitroFill');
 function ordinal(n){ return ['','1ST','2ND','3RD','4TH'][n] || (n+'TH'); }
 
 function isBetter(c, other){
-  // true if `c` currently ranks ahead of `other`
   if (c.finished !== other.finished) return c.finished;
   if (c.finished && other.finished) return c.finishTime < other.finishTime;
   return (c.progress||0) > (other.progress||0);
@@ -1666,6 +1530,11 @@ function resetRace(){
   input.steerActive = false;
   input.driveValue = 0;
   input.driveActive = false;
+  input.gas = false;
+  input.brake = false;
+  input.drift = false;
+  input.boost = false;
+  
   player.pos.copy(samplePts[0]); player.lastSampleIdx=0; player.maxSampleIdx=0;
   player.heading = Math.atan2(sampleTangents[0].x, sampleTangents[0].z);
   player.velocity.set(0,0,0);
@@ -1675,7 +1544,6 @@ function resetRace(){
   player.padFlags = new Array(BOOST_PAD_IDX.length).fill(false);
   player.trackIdx = 0; player.progress = 0;
   
-  // Snap player mesh immediately
   player.mesh.position.set(player.pos.x, 0, player.pos.z);
   player.mesh.rotation.set(0, player.heading, 0);
 
@@ -1687,12 +1555,11 @@ function resetRace(){
     st.heading = Math.atan2(sampleTangents[startIdx].x, sampleTangents[startIdx].z);
     st.speed = 0; st.lap = 0; st.finished = false; st.finishTime = 0;
     st.nitro = 100; st.boosting = false;
-    st.crossedHalfway = true; // AI starts past the halfway point
+    st.crossedHalfway = true;
     st.laneOffset = (idx-1)*3.0; st.laneOffsetTarget = st.laneOffset; st.laneTimer = Math.random()*2;
     st.padFlags = new Array(BOOST_PAD_IDX.length).fill(false);
     st.trackIdx = startIdx; st.progress = (st.lap - 1) * SAMPLES + startIdx;
 
-    // Snap AI meshes immediately
     st.mesh.position.set(st.pos.x, 0, st.pos.z);
     st.mesh.rotation.set(0, st.heading, 0);
   });
@@ -1712,6 +1579,8 @@ function runCountdown(){
       clearInterval(iv);
       countdownEl.style.display = 'none';
       raceStarted = true;
+      // Calibrate gyro when race starts so holding device naturally = center
+      if (gyroEnabled) calibrateGyro();
     }
   }, 800);
 }
@@ -1720,20 +1589,9 @@ async function handleStart(){
   if (!audioCtx) initAudio();
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 
-  // Request gyroscope permission for iOS 13+
-  if (isMobileDevice && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    try {
-      const permission = await DeviceOrientationEvent.requestPermission();
-      if (permission === 'granted') {
-        initGyroscope();
-      }
-    } catch (err) {
-      console.warn('Gyroscope permission denied or error:', err);
-    }
-  }
-
   if (isMobileDevice) {
     await enterMobilePresentation();
+    await requestGyroPermission();
     if (!isLandscapeMode()) {
       pendingMobileStart = true;
       finishStats.innerHTML = '<div>Rotate to landscape to start.</div>';
@@ -1780,8 +1638,6 @@ function animate(now){
   let dt = (now - lastT) / 1000;
   lastT = now;
   dt = Math.min(dt, 0.05);
-
-
 
   if (raceStarted && !raceOver){
     raceTime += dt;

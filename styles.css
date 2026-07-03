@@ -1,4 +1,4 @@
-html,body { width:100%; height:100vh; height:100dvh; overflow:hidden; background:#05060a; font-family:'Rajdhani',sans-serif; }
+html,body { width:100%; height:100vh; height:100dvh; overflow:hidden; background:#05060a; font-family:'Rajdhani',sans-serif; -webkit-tap-highlight-color:transparent; }
 
 #hud { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10; font-family:'Rajdhani', sans-serif; }
 
@@ -47,10 +47,6 @@ html,body { width:100%; height:100vh; height:100dvh; overflow:hidden; background
   z-index:12;
 }
 
-#btnNos {
-  display:none;
-}
-
 #nitroWrap {
   position:static;
   width:136px;
@@ -64,129 +60,64 @@ html,body { width:100%; height:100vh; height:100dvh; overflow:hidden; background
 #minimapCanvas { width:100%; height:100%; border-radius:6px; }
 
 #touchControls { position:absolute; bottom:0; left:0; width:100%; height:100%; pointer-events:none; display:none; }
+
+/* Shared button base */
 .btn {
   position:absolute; pointer-events:auto;
   display:flex; align-items:center; justify-content:center; flex-direction:column;
   font-family:'Orbitron',sans-serif; color:#e8ecf1;
   background:rgba(13,15,20,0.55); border:1px solid rgba(0,229,255,0.35);
   border-radius:50%; box-shadow:0 0 14px rgba(0,229,255,0.08);
+  -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
+  touch-action:none;
 }
 .btn:active, .btn.active { background:rgba(0,229,255,0.28); border-color:#00e5ff; box-shadow:0 0 20px rgba(0,229,255,0.5); }
 
-/* === Mobile Controls: Simple Buttons === */
-
-#leftButtonsWrap {
+/* Action buttons (bottom left) */
+#actionButtons {
   position:absolute;
-  left:12px;
-  bottom:12px;
+  left:14px;
+  bottom:14px;
   display:flex;
   flex-direction:column;
   gap:10px;
   pointer-events:none;
-  z-index:11;
 }
-
-#rightButtonsWrap {
-  position:absolute;
-  right:12px;
-  bottom:12px;
-  width:160px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  pointer-events:none;
-  z-index:11;
-}
-
-#btnDrift {
-  width:70px;
-  height:42px;
-  font-size:11px;
-  color:#ffb020;
-  border-color:rgba(255,176,32,0.4);
-  border-radius:16px;
-  pointer-events:auto;
-}
-
-#btnNosMobile {
-  width:70px;
-  height:42px;
-  font-size:11px;
-  color:#7f2fff;
-  border-color:rgba(127,47,255,0.5);
-  border-radius:16px;
-  pointer-events:auto;
-  display:none;
-}
-
-.driveBtn {
+.actionBtn {
   position:relative;
+  width:64px;
+  height:64px;
+  border-radius:18px;
   pointer-events:auto;
-  border-radius:16px;
-  background:rgba(13,15,20,0.55);
-  border:1px solid rgba(0,229,255,0.35);
-  box-shadow:0 0 14px rgba(0,229,255,0.08);
+}
+.actionBtn svg { width:26px; height:26px; pointer-events:none; }
+#btnNos { color:#7f2fff; border-color:rgba(127,47,255,0.5); }
+#btnNos.active { background:rgba(127,47,255,0.35); border-color:#7f2fff; box-shadow:0 0 20px rgba(127,47,255,0.5); }
+#btnDrift { color:#ffb020; border-color:rgba(255,176,32,0.45); }
+#btnDrift.active { background:rgba(255,176,32,0.35); border-color:#ffb020; box-shadow:0 0 20px rgba(255,176,32,0.5); }
+
+/* Pedal buttons (bottom right) */
+#pedalButtons {
+  position:absolute;
+  right:14px;
+  bottom:14px;
   display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:12px;
-  transition:all 0.15s ease;
-  touch-action:none;
-  height:50px;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;
 }
-
-.driveBtn:active {
-  background:rgba(0,229,255,0.28);
-  border-color:#00e5ff;
-  box-shadow:0 0 20px rgba(0,229,255,0.5);
-  transform:scale(0.98);
+.pedalBtn {
+  position:relative;
+  width:72px;
+  height:72px;
+  border-radius:50%;
+  pointer-events:auto;
 }
-
-#btnBrake {
-  border-color:rgba(255,176,32,0.4) !important;
-}
-
-#btnBrake:active {
-  background:rgba(255,176,32,0.3) !important;
-  border-color:#ffb020 !important;
-  box-shadow:0 0 20px rgba(255,176,32,0.4) !important;
-}
-
-#btnGas {
-  border-color:rgba(0,255,162,0.4) !important;
-}
-
-#btnGas:active {
-  background:rgba(0,255,162,0.25) !important;
-  border-color:#00ffa2 !important;
-  box-shadow:0 0 20px rgba(0,255,162,0.4) !important;
-}
-
-.driveBtnLabel {
-  font-family:'Orbitron',sans-serif;
-  font-size:12px;
-  font-weight:600;
-  letter-spacing:1px;
-  color:#e8ecf1;
-}
-
-#btnBrake .driveBtnLabel {
-  color:#ffb020;
-}
-
-#btnGas .driveBtnLabel {
-  color:#00ffa2;
-}
-
-#btnNos {
-  position:static;
-  width:70px;
-  height:70px;
-  font-size:11px;
-  color:#7f2fff;
-  border-color:rgba(127,47,255,0.5);
-  border-radius:22px;
-}
+.pedalBtn svg { width:28px; height:28px; pointer-events:none; }
+#btnGas { color:#00ff9d; border-color:rgba(0,255,157,0.45); }
+#btnGas.active { background:rgba(0,255,157,0.25); border-color:#00ff9d; box-shadow:0 0 20px rgba(0,255,157,0.4); }
+#btnBrake { color:#ff2e5a; border-color:rgba(255,46,90,0.45); }
+#btnBrake.active { background:rgba(255,46,90,0.25); border-color:#ff2e5a; box-shadow:0 0 20px rgba(255,46,90,0.4); }
 
 #overlay {
   position:fixed; inset:0; z-index:20;
@@ -242,83 +173,79 @@ body.mobile-device #touchControls { display:block; }
     pointer-events:none;
   }
 
-  #touchControls .btn {
-    box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 18px rgba(0,229,255,0.08);
-    touch-action: none;
+  #topRightCluster {
+    right: 10px;
+    top: 10px;
+    gap: 8px;
   }
 
-  /* Left side buttons (Drift, Nitro) */
-  #leftButtonsWrap {
+  #nitroWrap {
+    width: 118px;
+    padding: 5px 7px;
+  }
+
+  #gaugeWrap {
+    right: 10px;
+    bottom: 10px;
+    width: 128px;
+    height: 128px;
+  }
+
+  #gaugeFace {
+    width: 112px;
+    height: 112px;
+  }
+
+  #speedNum {
+    bottom: 14px;
+    font-size: 18px;
+  }
+
+  #minimapWrap {
+    left: 10px;
+    bottom: 10px;
+    width: 112px;
+    height: 112px;
+  }
+
+  #actionButtons {
     left: 10px;
     bottom: 10px;
     gap: 8px;
   }
 
-  #btnDrift {
-    width: 64px;
-    height: 38px;
-    font-size: 10px;
+  .actionBtn {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
   }
 
-  #btnNosMobile {
-    display: flex;
-    width: 64px;
-    height: 38px;
-    font-size: 10px;
+  .actionBtn svg {
+    width: 22px;
+    height: 22px;
   }
 
-  /* Right side buttons (Brake, Gas) */
-  #rightButtonsWrap {
+  #pedalButtons {
     right: 10px;
     bottom: 10px;
-    width: 140px;
     gap: 8px;
   }
 
-  .driveBtn {
-    height: 46px;
-    border-radius: 12px;
+  .pedalBtn {
+    width: 64px;
+    height: 64px;
   }
 
-  .driveBtnLabel {
-    font-size: 11px;
-  }
-
-  /* Keep original HUD positions */
-  #topLeft {
-    top: 14px;
-    left: 14px;
-  }
-
-  #gaugeWrap {
-    bottom: 16px;
-    right: 16px;
-    width: 150px;
-    height: 150px;
-  }
-
-  #minimapWrap {
-    bottom: 16px;
-    left: 16px;
-    width: 130px;
-    height: 130px;
-  }
-
-  #topRightCluster {
-    top: 12px;
-    right: 12px;
-    gap: 10px;
-  }
-
-  #btnNos {
-    display: none;
+  .pedalBtn svg {
+    width: 24px;
+    height: 24px;
   }
 }
 
 @media (pointer: coarse) and (orientation: landscape) {
   #topLeft {
     top: 10px;
-    left: 10px;
+    left: 96px;
     padding: 6px 9px;
     max-width: 30vw;
   }
@@ -335,83 +262,37 @@ body.mobile-device #touchControls { display:block; }
     font-size: 10px;
   }
 
-  /* Keep minimap at bottom left */
   #minimapWrap {
-    bottom: 16px;
-    left: 16px;
-    width: 130px;
-    height: 130px;
-    padding: 4px;
+    top: 10px;
+    left: 10px;
+    bottom: auto;
+    width: 76px;
+    height: 76px;
+    padding: 3px;
   }
 
-  /* Keep speedometer at bottom right */
   #gaugeWrap {
-    bottom: 16px;
-    right: 16px;
-    width: 150px;
-    height: 150px;
-  }
-
-  #gaugeFace {
-    width: 132px;
-    height: 132px;
-  }
-
-  /* Keep nitrometer at top right */
-  #topRightCluster {
-    top: 12px;
-    right: 12px;
-    gap: 10px;
-  }
-
-  #nitroWrap {
-    width: 136px;
-    padding: 6px 8px;
-  }
-
-  #btnNos {
     display: none;
   }
 
-  #touchControls {
-    display: block;
-  }
-
-  /* Left buttons (Drift, Nitro) */
-  #leftButtonsWrap {
+  #actionButtons {
     left: 10px;
     bottom: 10px;
-    gap: 8px;
   }
 
-  #btnDrift {
-    width: 62px;
-    height: 36px;
-    font-size: 10px;
-  }
-
-  #btnNosMobile {
-    display: flex;
-    width: 62px;
-    height: 36px;
-    font-size: 10px;
-  }
-
-  /* Right buttons (Brake, Gas) */
-  #rightButtonsWrap {
+  #pedalButtons {
     right: 10px;
     bottom: 10px;
-    width: 130px;
+  }
+
+  #topRightCluster {
+    right: 10px;
+    top: 10px;
     gap: 8px;
   }
 
-  .driveBtn {
-    height: 42px;
-    border-radius: 12px;
-  }
-
-  .driveBtnLabel {
-    font-size: 10px;
+  #nitroWrap {
+    width: 110px;
   }
 }
 
