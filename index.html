@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>NEON CIRCUIT — Racer</title>
 <link rel="stylesheet" href="styles.css">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -41,26 +42,47 @@
     </div>
   </div>
 
-  <div id="nitroWrap" class="panel">
-    <div id="nitroLabel">NITRO</div>
-    <div id="nitroTrack"><div id="nitroFill"></div></div>
-  </div>
-
   <div id="minimapWrap" class="panel">
     <canvas id="minimapCanvas" width="130" height="130"></canvas>
   </div>
 
-  <div id="touchControls">
-    <div class="btn" id="btnDrift">DRIFT</div>
-    <div class="btn" id="btnLeft">◀</div>
-    <div class="btn" id="btnRight">▶</div>
+  <div id="topRightCluster">
+    <div id="nitroWrap" class="panel">
+      <div id="nitroLabel">NITRO</div>
+      <div id="nitroTrack"><div id="nitroFill"></div></div>
+    </div>
     <div class="btn" id="btnNos">NOS</div>
-    <div class="btn" id="btnBrake">BRAKE</div>
-    <div class="btn" id="btnGas">GAS</div>
+  </div>
+
+  <div id="touchControls">
+    <div id="steerArea">
+      <div class="btn" id="btnDrift">DRIFT</div>
+      <div id="steerWheel" aria-label="Steering wheel" role="application">
+        <div class="wheelRing"></div>
+        <div class="wheelSpoke wheelSpokeA"></div>
+        <div class="wheelSpoke wheelSpokeB"></div>
+        <div class="wheelSpoke wheelSpokeC"></div>
+        <div class="wheelHub"></div>
+      </div>
+    </div>
+
+    <div id="driveSwitchWrap">
+      <div id="driveSwitch" aria-label="Brake and gas switch" role="slider" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0">
+        <div class="driveTrack"></div>
+        <div class="driveCenter"></div>
+        <div class="driveFill brakeFill"></div>
+        <div class="driveFill gasFill"></div>
+        <div class="driveKnob"></div>
+        <div class="driveLabels">
+          <span>BRAKE</span>
+          <span>GAS</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
 <script src="script.js" defer></script>
 </body>
 </html>

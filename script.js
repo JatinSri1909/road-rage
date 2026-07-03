@@ -1,10 +1,21 @@
 (function(){
 "use strict";
 
+const isMobileDevice = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
+document.body.classList.toggle('mobile-device', isMobileDevice);
+document.body.classList.toggle('desktop-device', !isMobileDevice);
+
 /* ============================= SETUP ============================= */
-const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobileDevice, powerPreference:'high-performance' });
+function getViewportSize(){
+  const width = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+  const height = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  return { width, height };
+}
+function resizeRenderer(){
+  renderer.setSize(width, height);
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileDevice ? 1.5 : 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
@@ -13,10 +24,12 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth/window.innerHeight, 0.1, 2500);
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  resizeRenderer();
 });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resizeRenderer);
+}
+resizeRenderer();
 
 function makeSkyTexture(){
   const c = document.createElement('canvas'); c.width = 512; c.height = 512;
@@ -1032,7 +1045,18 @@ const aiCars = aiColors.map((c,idx)=>{
 const allCars = [player, ...aiCars];
 
 /* ============================= INPUT ============================= */
-const input = { left:false, right:false, gas:false, brake:false, drift:false, boost:false };
+const input = {
+  left:false,
+  right:false,
+  gas:false,
+  brake:false,
+  drift:false,
+  boost:false,
+  steer:0,
+  steerActive:false,
+  driveValue:0,
+  driveActive:false,
+};
 window.addEventListener('keydown', e=>{
   if (['ArrowLeft','a','A'].includes(e.key)) input.left = true;
   if (['ArrowRight','d','D'].includes(e.key)) input.right = true;
@@ -1051,21 +1075,118 @@ window.addEventListener('keyup', e=>{
 });
 function bindHold(id, key){
   const el = document.getElementById(id);
-  const on = ev=>{ ev.preventDefault(); input[key]=true; el.classList.add('active'); };
-  const off = ev=>{ ev.preventDefault(); input[key]=false; el.classList.remove('active'); };
-  el.addEventListener('touchstart', on, {passive:false});
-  el.addEventListener('touchend', off, {passive:false});
-  el.addEventListener('touchcancel', off, {passive:false});
-  el.addEventListener('mousedown', on);
-  el.addEventListener('mouseup', off);
-  el.addEventListener('mouseleave', off);
+  let activePointer = null;
+  const on = ev=>{
+    ev.preventDefault();
+    activePointer = ev.pointerId;
+    input[key] = true;
+    el.classList.add('active');
+    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
+  };
+  const off = ev=>{
+    if (activePointer !== null && ev.pointerId !== activePointer) return;
+    activePointer = null;
+    input[key] = false;
+    el.classList.remove('active');
+  };
+  el.addEventListener('pointerdown', on);
+  el.addEventListener('pointerup', off);
+  el.addEventListener('pointercancel', off);
 }
-bindHold('btnLeft','left');
-bindHold('btnRight','right');
-bindHold('btnGas','gas');
-bindHold('btnBrake','brake');
 bindHold('btnDrift','drift');
 bindHold('btnNos','boost');
+
+const steerWheel = document.getElementById('steerWheel');
+const driveSwitch = document.getElementById('driveSwitch');
+
+function bindSteerWheel(el){
+  let activePointer = null;
+  const updateFromEvent = ev=>{
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const steer = THREE.MathUtils.clamp((centerX - ev.clientX) / (rect.width / 2), -1, 1);
+    input.steer = steer;
+    input.steerActive = true;
+    el.style.setProperty('--wheel-angle', `${steer * 58}deg`);
+  };
+  const start = ev=>{
+    ev.preventDefault();
+    activePointer = ev.pointerId;
+    el.classList.add('active');
+    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
+    updateFromEvent(ev);
+  };
+  const move = ev=>{
+    if (activePointer !== ev.pointerId) return;
+    ev.preventDefault();
+    updateFromEvent(ev);
+  };
+  const end = ev=>{
+    if (activePointer !== null && ev.pointerId !== activePointer) return;
+    activePointer = null;
+    input.steer = 0;
+    input.steerActive = false;
+    el.classList.remove('active');
+    el.style.setProperty('--wheel-angle', '0deg');
+  };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+function bindPedalSlider(el, valueKey, activeKey){
+  let activePointer = null;
+  const updateFromEvent = ev=>{
+    const rect = el.getBoundingClientRect();
+    const value = THREE.MathUtils.clamp(((ev.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
+    const brakeValue = Math.max(0, -value);
+    const gasValue = Math.max(0, value);
+    input.driveValue = value;
+    input.driveActive = true;
+    el.setAttribute('aria-valuenow', String(Math.round(value * 100)));
+
+    const brakeFill = el.querySelector('.brakeFill');
+    const gasFill = el.querySelector('.gasFill');
+    const knob = el.querySelector('.driveKnob');
+    if (brakeFill) brakeFill.style.width = `${brakeValue * 50}%`;
+    if (gasFill) gasFill.style.width = `${gasValue * 50}%`;
+    if (knob) knob.style.left = `calc(50% + ${(value * 50).toFixed(2)}%)`;
+  };
+  const start = ev=>{
+    ev.preventDefault();
+    activePointer = ev.pointerId;
+    el.classList.add('active');
+    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
+    updateFromEvent(ev);
+  };
+  const move = ev=>{
+    if (activePointer !== ev.pointerId) return;
+    ev.preventDefault();
+    updateFromEvent(ev);
+  };
+  const end = ev=>{
+    if (activePointer !== null && ev.pointerId !== activePointer) return;
+    activePointer = null;
+    input.driveValue = 0;
+    input.driveActive = false;
+    el.classList.remove('active');
+    el.setAttribute('aria-valuenow', '0');
+    const brakeFill = el.querySelector('.brakeFill');
+    const gasFill = el.querySelector('.gasFill');
+    const knob = el.querySelector('.driveKnob');
+    if (brakeFill) brakeFill.style.width = '0';
+    if (gasFill) gasFill.style.width = '0';
+    if (knob) knob.style.left = '50%';
+  };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+if (steerWheel) bindSteerWheel(steerWheel);
+if (driveSwitch) bindPedalSlider(driveSwitch, 'driveValue', 'driveActive');
 
 /* ============================= HELPERS ============================= */
 function nearestSampleIdx(pos, startGuess){
@@ -1197,9 +1318,13 @@ function stepPlayer(dt){
   let vR = c.velocity.dot(rightDir);
 
   const boosting = input.boost && c.nitro > 0;
+  const steerInput = input.steerActive ? input.steer : ((input.left ? 1 : 0) - (input.right ? 1 : 0));
+  const driveInput = input.driveActive ? input.driveValue : 0;
+  const gasInput = input.driveActive ? Math.max(0, driveInput) : (input.gas ? 1 : 0);
+  const brakeInput = input.driveActive ? Math.max(0, -driveInput) : (input.brake ? 1 : 0);
   let accel = 0;
-  if (input.gas) accel += CAR_ACCEL*(boosting?1.7:1);
-  if (input.brake) accel += (vF > 1 ? -CAR_BRAKE : -CAR_REVERSE_ACCEL);
+  if (gasInput > 0) accel += CAR_ACCEL*(boosting?1.7:1) * gasInput;
+  if (brakeInput > 0) accel += (vF > 1 ? -CAR_BRAKE : -CAR_REVERSE_ACCEL) * brakeInput;
   vF += accel*dt;
 
   vF -= Math.sign(vF) * (CAR_DRAG*0.5 + Math.abs(vF)*0.03) * dt;
@@ -1211,7 +1336,7 @@ function stepPlayer(dt){
   const grip = input.drift ? GRIP_DRIFT : GRIP_NORMAL;
   vR -= vR * Math.min(1, grip*dt);
 
-  const steer = (input.left?1:0) - (input.right?1:0);
+  const steer = steerInput;
   const speedFactor = THREE.MathUtils.clamp(Math.abs(vF)/7, 0, 1);
   const turnDir = vF >= 0 ? 1 : -1;
   const turnRate = CAR_MAX_TURN * speedFactor * (input.drift?1.3:1);
@@ -1449,8 +1574,9 @@ function updateHUD(dt){
   posLineEl.textContent = ordinal(rank);
 
   const kmh = Math.abs(player.speed) * 3.6;
-  speedNumEl.textContent = Math.round(kmh);
-  const frac = THREE.MathUtils.clamp(kmh / (CAR_MAX_SPEED*3.6), 0, 1);
+  const displayedSpeed = Math.min(Math.round(kmh), 150);
+  speedNumEl.textContent = displayedSpeed;
+  const frac = THREE.MathUtils.clamp(displayedSpeed / 150, 0, 1);
   const angle = -120 + frac*240;
   needleEl.style.transform = `translateX(-50%) rotate(${angle}deg)`;
 
@@ -1460,24 +1586,41 @@ function updateHUD(dt){
 }
 
 /* ============================= AUDIO ============================= */
-let audioCtx, osc, gainNode;
+let audioCtx, osc, osc2, gainNode;
 function initAudio(){
   try{
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     osc = audioCtx.createOscillator();
+    osc2 = audioCtx.createOscillator();
+    const filter = audioCtx.createBiquadFilter();
     gainNode = audioCtx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.value = 60;
+    osc.type = 'sine';
+    osc.frequency.value = 96;
+    osc2.type = 'triangle';
+    osc2.frequency.value = 192;
+    osc2.detune.value = -8;
+    filter.type = 'lowpass';
+    filter.frequency.value = 1180;
+    filter.Q.value = 0.55;
     gainNode.gain.value = 0.0;
-    osc.connect(gainNode).connect(audioCtx.destination);
+    osc.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gainNode).connect(audioCtx.destination);
     osc.start();
+    osc2.start();
   }catch(e){}
 }
 function updateAudio(){
   if (!osc) return;
-  const speedFrac = Math.abs(player.speed)/CAR_MAX_SPEED;
-  osc.frequency.value = 55 + speedFrac*160 + (player.boosting?60:0);
-  gainNode.gain.value = raceStarted && !raceOver ? 0.035 + speedFrac*0.05 + (player.boosting?0.02:0) : 0.0;
+  const speedFrac = THREE.MathUtils.clamp(Math.abs(player.speed)/CAR_MAX_SPEED, 0, 1);
+  const movingNow = raceStarted && !raceOver && speedFrac > 0.01;
+  const drivingNow = movingNow || input.gas || input.brake || input.boost || input.driveActive;
+  const targetFreq = 88 + speedFrac * 78 + (player.boosting ? 14 : 0);
+  const targetGain = movingNow ? (0.045 + speedFrac * 0.060) : 0.0;
+  const boostAccent = player.boosting ? 0.016 : 0.0;
+  osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.03);
+  osc2.frequency.setTargetAtTime(targetFreq * 2, audioCtx.currentTime, 0.03);
+  gainNode.gain.setTargetAtTime(drivingNow ? targetGain + boostAccent : 0.0, audioCtx.currentTime, 0.05);
 }
 
 /* ============================= COUNTDOWN / START ============================= */
@@ -1486,9 +1629,39 @@ const startBtn = document.getElementById('startBtn');
 const countdownEl = document.getElementById('countdown');
 const hud = document.getElementById('hud');
 const finishStats = document.getElementById('finishStats');
+let pendingMobileStart = false;
+
+function isLandscapeMode(){
+  return window.matchMedia('(orientation: landscape)').matches;
+}
+
+async function enterMobilePresentation(){
+  if (!isMobileDevice) return;
+  if (document.fullscreenElement == null && document.documentElement.requestFullscreen) {
+    try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  }
+  if (screen.orientation && screen.orientation.lock) {
+    try { await screen.orientation.lock('landscape'); } catch (e) {}
+  }
+}
+
+function beginRace(){
+  overlay.classList.add('hidden');
+  finishStats.innerHTML = '';
+  resetRace();
+  runCountdown();
+}
 
 function resetRace(){
   raceTime = 0; raceOver = false;
+  input.steer = 0;
+  input.steerActive = false;
+  input.driveValue = 0;
+  input.driveActive = false;
+  const steerWheelEl = document.getElementById('steerWheel');
+  const driveSwitchEl = document.getElementById('driveSwitch');
+  if (steerWheelEl) steerWheelEl.style.setProperty('--wheel-angle', '0deg');
+  if (driveSwitchEl) driveSwitchEl.style.setProperty('--drive-value', '0');
   player.pos.copy(samplePts[0]); player.lastSampleIdx=0; player.maxSampleIdx=0;
   player.heading = Math.atan2(sampleTangents[0].x, sampleTangents[0].z);
   player.velocity.set(0,0,0);
@@ -1539,14 +1712,33 @@ function runCountdown(){
   }, 800);
 }
 
-startBtn.addEventListener('click', ()=>{
+async function handleStart(){
   if (!audioCtx) initAudio();
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  overlay.classList.add('hidden');
-  finishStats.innerHTML = '';
-  resetRace();
-  runCountdown();
-}, {passive:true});
+
+  if (isMobileDevice) {
+    await enterMobilePresentation();
+    if (!isLandscapeMode()) {
+      pendingMobileStart = true;
+      finishStats.innerHTML = '<div>Rotate to landscape to start.</div>';
+      overlay.classList.remove('hidden');
+      return;
+    }
+  }
+
+  pendingMobileStart = false;
+  beginRace();
+}
+
+startBtn.addEventListener('click', handleStart, { passive:true });
+
+window.addEventListener('orientationchange', ()=>{
+  if (!pendingMobileStart) return;
+  if (isLandscapeMode()) {
+    pendingMobileStart = false;
+    setTimeout(beginRace, 150);
+  }
+});
 
 function checkFinish(){
   if (player.finished && !raceOver){
