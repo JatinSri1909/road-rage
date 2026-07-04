@@ -11,7 +11,7 @@ export const COLOR_PRESETS = [
   { id: 'lime', primary: 0x8aff4d, accent: 0xff2e9a, name: 'Acid Lime' },
   { id: 'purple', primary: 0xb026ff, accent: 0x00e5ff, name: 'Vapor Purple' },
   { id: 'gold', primary: 0xffb020, accent: 0x1a1a1a, name: 'Solar Gold' },
-  { id: 'shadow', primary: 0x1c1d22, accent: 0xffb020, name: 'Shadow Black' },
+  { id: 'crimson', primary: 0xff003c, accent: 0xffffff, name: 'Crimson Red' },
 ];
 
 /**
