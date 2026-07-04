@@ -81,7 +81,7 @@ function buildTerrain(samplePts) {
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const trackSample = [];
-  for (let i = 0; i < samplePts.length; i += 2) trackSample.push(samplePts[i]);
+  for (let i = 0; i < samplePts.length; i += 4) trackSample.push(samplePts[i]);
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
@@ -237,6 +237,8 @@ function buildTrees(scene, samplePts, sampleTangents, ROAD_W) {
 function buildGrandstand(pos, faceAngle) {
   const g = new THREE.Group();
   const tierMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a0, roughness: 0.9 });
+  
+  const peopleData = [];
   for (let t = 0; t < 4; t++) {
     const tier = new THREE.Mesh(new THREE.BoxGeometry(16, 0.7, 2.2), tierMat);
     tier.position.set(0, 1 + t * 1.15, -t * 1.3);
@@ -246,11 +248,32 @@ function buildGrandstand(pos, faceAngle) {
     for (let c = 0; c < 14; c++) {
       if (Math.random() < 0.35) continue;
       const crowdColor = [0x3a4a6b, 0x6b3a3a, 0x3a6b4a, 0xd8d0c0, 0x2a2a30, 0x8a7a5a][Math.floor(Math.random() * 6)];
-      const person = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.55, 0.4), new THREE.MeshStandardMaterial({ color: crowdColor, roughness: 0.8 }));
-      person.position.set(-7 + c * 1.1, 1.5 + t * 1.15, -t * 1.3);
-      g.add(person);
+      peopleData.push({
+        x: -7 + c * 1.1,
+        y: 1.5 + t * 1.15,
+        z: -t * 1.3,
+        color: crowdColor
+      });
     }
   }
+
+  if (peopleData.length > 0) {
+    const personGeo = new THREE.BoxGeometry(0.4, 0.55, 0.4);
+    const personMat = new THREE.MeshStandardMaterial({ roughness: 0.8 });
+    const instMesh = new THREE.InstancedMesh(personGeo, personMat, peopleData.length);
+    instMesh.castShadow = true;
+    
+    const dummy = new THREE.Object3D();
+    const colorObj = new THREE.Color();
+    peopleData.forEach((p, idx) => {
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.updateMatrix();
+      instMesh.setMatrixAt(idx, dummy.matrix);
+      instMesh.setColorAt(idx, colorObj.setHex(p.color));
+    });
+    g.add(instMesh);
+  }
+
   g.position.copy(pos);
   g.rotation.y = faceAngle;
   return g;

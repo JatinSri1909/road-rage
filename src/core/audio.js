@@ -46,7 +46,8 @@ export function resumeAudio() {
 export function updateAudio(player, raceStarted, raceOver, input) {
   if (!osc) return;
 
-  const speedFrac  = THREE.MathUtils.clamp(Math.abs(player.speed) / CAR_MAX_SPEED, 0, 1);
+  const maxSpeed   = (player.stats || {}).maxSpeed || CAR_MAX_SPEED;
+  const speedFrac  = THREE.MathUtils.clamp(Math.abs(player.speed) / maxSpeed, 0, 1);
   const movingNow  = raceStarted && !raceOver && speedFrac > 0.01;
   const drivingNow = movingNow || input.gas || input.brake || input.boost;
 

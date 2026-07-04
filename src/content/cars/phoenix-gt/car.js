@@ -8,6 +8,9 @@
  * @property {{ x: number, y: number, z: number }} shellScale    — body shell scale
  * @property {{ x: number, y: number, z: number }} canopyScale   — canopy scale
  * @property {[number, number, number][]}           wheelPositions — [x, y, z] per wheel
+ * @property {'gt'|'muscle'}                        bodyStyle     — which body builder to use
+ * @property {number}                               color         — default paint colour (hex)
+ * @property {number}                               accentColor   — default stripe/accent colour (hex)
  * @property {import('./stats.js').CarStats}        stats
  */
 
@@ -17,6 +20,11 @@ import stats from './stats.js';
 const phoenixGT = {
   id:   'phoenix-gt',
   name: 'Phoenix GT',
+
+  // Rounded GT coupe — sphere shell, bubble canopy, ducktail spoiler.
+  bodyStyle:   'gt',
+  color:       0x00e5ff,
+  accentColor: 0x0a2530,
 
   // Body shell proportions (x=width, y=height, z=length multipliers on unit sphere)
   shellScale:   { x: 0.92, y: 0.56, z: 2.05 },

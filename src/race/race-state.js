@@ -128,6 +128,11 @@ export function checkFinish(player) {
     const overlay  = document.getElementById('overlay');
     const hud      = document.getElementById('hud');
     const startBtn = document.getElementById('startBtn');
+
+    // Reset overlay screen visibility to start menu
+    document.getElementById('landingScreen')?.classList.remove('hidden');
+    document.getElementById('setupScreen')?.classList.add('hidden');
+
     if (overlay)  overlay.classList.remove('hidden');
     if (hud)      hud.classList.add('hidden');
     if (startBtn) startBtn.textContent = 'RACE AGAIN';

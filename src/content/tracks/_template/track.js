@@ -25,6 +25,7 @@ import * as THREE from 'three';
 
 /** @type {TrackDefinition} */
 const templateTrack = {
+  name: 'Template Track',
   controlPoints: [
     new THREE.Vector3(  0, 0,   0),
     new THREE.Vector3( 60, 0,  -10),

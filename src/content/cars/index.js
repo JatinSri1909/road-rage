@@ -16,7 +16,9 @@
 
 const REGISTRY = {
   'phoenix-gt': () => import('./phoenix-gt/car.js'),
-  // 'shadow-v8':  () => import('./shadow-v8/car.js'),  // example
+  'viper-x':    () => import('./viper-x/car.js'),
+  'concept-gt': () => import('./concept-gt/car.js'),
+  'specter-r':  () => import('./specter-r/car.js'),
 };
 
 /**

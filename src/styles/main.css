@@ -243,6 +243,208 @@ html, body {
   pointer-events: auto;
 }
 
+/* ── Car select (pre-race picker) ─────────────────────────────────────────── */
+
+.car-select {
+  display: flex; gap: 10px; flex-wrap: nowrap; overflow-x: auto;
+  max-width: 90vw; width: fit-content; margin-top: 4px;
+  padding: 10px 4px; /* padding for selected glow */
+  justify-content: flex-start;
+  scrollbar-width: none;
+}
+.car-select::-webkit-scrollbar { display: none; }
+.car-select.hidden { display: none; }
+
+.car-option {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 10px 16px; min-width: 108px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(143,162,179,0.3); border-radius: 12px;
+  color: #6b7c8c; cursor: pointer; pointer-events: auto;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  flex: 0 0 auto;
+}
+.car-option-name {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; letter-spacing: 1px;
+  color: #e8ecf1;
+}
+.car-option-stats {
+  display: flex; gap: 10px;
+  font-size: 10px; letter-spacing: 1px; color: #6b7c8c;
+}
+.car-option.selected {
+  border-color: #00e5ff;
+  background: rgba(0,229,255,0.1);
+  box-shadow: 0 0 20px rgba(0,229,255,0.25);
+}
+.car-option.selected .car-option-name { color: #00e5ff; }
+
+/* ── Setup screen (track/car selection layout) ───────────────────────────── */
+
+#setupScreen {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  width: 100%;
+}
+
+#setupScreen h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 24px; letter-spacing: 2px;
+  color: #00e5ff;
+  text-shadow: 0 0 20px rgba(0,229,255,0.3);
+  margin-bottom: 12px;
+  margin-top: 0;
+}
+
+.setup-container {
+  display: flex; flex-direction: column; gap: 12px;
+  width: 100%; align-items: center;
+}
+
+.setup-section {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 100%;
+}
+
+.setup-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px; letter-spacing: 2px;
+  color: #ff2e9a;
+  text-transform: uppercase;
+  margin-bottom: 0px;
+}
+
+.track-select {
+  display: flex; gap: 10px; flex-wrap: nowrap; overflow-x: auto;
+  max-width: 90vw; width: fit-content;
+  padding: 10px 4px;
+  justify-content: flex-start;
+  scrollbar-width: none;
+}
+.track-select::-webkit-scrollbar { display: none; }
+
+.track-option {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 10px 16px; min-width: 108px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(143,162,179,0.3); border-radius: 12px;
+  color: #6b7c8c; cursor: pointer; pointer-events: auto;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  flex: 0 0 auto;
+}
+
+.track-option-name {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; letter-spacing: 1px;
+  color: #e8ecf1;
+}
+
+.track-option-stats {
+  display: flex; gap: 10px;
+  font-size: 10px; letter-spacing: 1px; color: #6b7c8c;
+}
+
+.track-option.selected {
+  border-color: #00e5ff;
+  background: rgba(0,229,255,0.1);
+  box-shadow: 0 0 20px rgba(0,229,255,0.25);
+}
+
+.track-option.selected .track-option-name { color: #00e5ff; }
+
+/* ── Color select ────────────────────────────────────────────────────────── */
+
+.color-select {
+  display: flex; gap: 14px; flex-wrap: nowrap; overflow-x: auto;
+  justify-content: flex-start;
+  margin-top: 4px; padding: 10px 4px;
+  max-width: 90vw; width: fit-content;
+  scrollbar-width: none;
+}
+.color-select::-webkit-scrollbar { display: none; }
+
+.color-option {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  flex: 0 0 auto;
+}
+
+.color-option:hover {
+  transform: scale(1.12);
+}
+
+.color-option.selected {
+  border-color: #00e5ff;
+  box-shadow: 0 0 15px var(--glow-color);
+  transform: scale(1.15);
+}
+
+/* Inner dot for accent color */
+.color-option::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  transform: translate(-50%, -50%);
+}
+
+#raceBtn {
+  margin-top: 26px;
+  font-family: 'Orbitron', sans-serif; font-size: 16px; letter-spacing: 2px;
+  padding: 16px 50px;
+  background: linear-gradient(135deg, #ff2e9a, #ff71ce);
+  color: #05060a; border: none; border-radius: 30px;
+  box-shadow: 0 0 30px rgba(255,46,154,0.5);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+
+#raceBtn:active {
+  transform: scale(0.97);
+}
+
+/* ── Loading Screen ───────────────────────────────────────────────────────── */
+
+#loadingScreen {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 24px; width: 100%; height: 100%;
+  position: absolute; top: 0; left: 0;
+  background: rgba(5, 6, 10, 0.96);
+  z-index: 100;
+  pointer-events: auto;
+  border-radius: 16px;
+}
+#loadingScreen.hidden { display: none; }
+
+.loader-spinner {
+  width: 50px; height: 50px;
+  border: 3px solid rgba(0, 229, 255, 0.1);
+  border-top-color: #00e5ff;
+  border-radius: 50%;
+  animation: loading-spin 1s linear infinite;
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+}
+
+.loading-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px; letter-spacing: 2px;
+  color: #ff2e9a;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(255, 46, 154, 0.35);
+}
+
+@keyframes loading-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Countdown ────────────────────────────────────────────────────────────── */
 
 #countdown {
@@ -271,6 +473,9 @@ body.mobile-device #touchControls { display: block; }
   #overlay h1 { font-size: clamp(30px, 8vw, 42px); }
   #overlay .rules { max-width: 92vw; font-size: 12px; line-height: 1.55; }
   #startBtn { width: min(92vw, 360px); padding: 16px 24px; }
+  #raceBtn { width: min(92vw, 360px); padding: 16px 24px; }
+  .car-select, .track-select { max-width: 92vw; }
+  .car-option, .track-option { min-width: 92px; padding: 8px 12px; }
 
   #touchControls { display: block; pointer-events: none; }
 
@@ -343,6 +548,20 @@ body.mobile-device #touchControls { display: block; }
   .btn-action svg { width: 22px; height: 22px; }
   #topRightCluster { right: 10px; top: 10px; gap: 8px; }
   #nitroWrap { width: 110px; }
+
+  /* Fix overlay and setup screen for short mobile landscape */
+  #overlay {
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding: 16px 20px 40px;
+  }
+  #overlay h1 { font-size: 24px; }
+  #overlay .rules { margin-top: 12px; font-size: 11px; line-height: 1.4; }
+  #startBtn { margin-top: 16px; padding: 12px 24px; font-size: 14px; }
+  
+  #setupScreen h1 { font-size: 18px; margin-bottom: 10px; }
+  .setup-container { gap: 10px; }
+  #raceBtn { margin-top: 12px; padding: 12px 36px; font-size: 14px; }
 }
 
 /* ── Portrait warning ────────────────────────────────────────────────────── */
