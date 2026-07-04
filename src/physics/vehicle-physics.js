@@ -48,6 +48,18 @@ export function getTopSpeedKmh(stats) {
 
 const UP = new THREE.Vector3(0, 1, 0);
 
+// Reusable scratch vectors to avoid per-frame GC pressure
+const _forwardDir  = new THREE.Vector3();
+const _rightDir    = new THREE.Vector3();
+const _rightV      = new THREE.Vector3();
+const _rel         = new THREE.Vector3();
+const _rearL       = new THREE.Vector3();
+const _rearR       = new THREE.Vector3();
+const _rear        = new THREE.Vector3();
+const _velScratch  = new THREE.Vector3();
+const _velScratch2 = new THREE.Vector3();
+const _velScratch3 = new THREE.Vector3();
+
 /**
  * Advance player physics by one frame.
  * Mutates player state in-place.
@@ -64,8 +76,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 export function stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, ROAD_W, BOOST_PAD_IDX, dt) {
   const c = player;
   const s = c.stats || DEFAULT_STATS; // per-car physics parameters
-  const forwardDir = new THREE.Vector3(Math.sin(c.heading), 0, Math.cos(c.heading));
-  const rightDir   = new THREE.Vector3(Math.cos(c.heading), 0, -Math.sin(c.heading));
+  const forwardDir = _forwardDir.set(Math.sin(c.heading), 0, Math.cos(c.heading));
+  const rightDir   = _rightDir.set(Math.cos(c.heading), 0, -Math.sin(c.heading));
 
   let vF = c.velocity.dot(forwardDir);
   let vR = c.velocity.dot(rightDir);
@@ -104,8 +116,8 @@ export function stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, RO
   const { idx } = nearestSampleIdx(c.pos, c.lastSampleIdx, samplePts, SAMPLES);
   const centerP  = samplePts[idx];
   const tang     = sampleTangents[idx];
-  const rightV   = new THREE.Vector3().crossVectors(tang, UP).normalize();
-  const rel      = new THREE.Vector3(c.pos.x - centerP.x, 0, c.pos.z - centerP.z);
+  const rightV   = _rightV.crossVectors(tang, UP).normalize();
+  const rel      = _rel.set(c.pos.x - centerP.x, 0, c.pos.z - centerP.z);
   const lateral  = rel.dot(rightV);
   const maxLat   = ROAD_W / 2 - 1.1;
   if (lateral > maxLat || lateral < -maxLat) {
@@ -132,16 +144,16 @@ export function stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, RO
 
   // Drift smoke
   if (input.drift && Math.abs(vR) > 2.2 && Math.abs(vF) > 4) {
-    const rearL = c.pos.clone().addScaledVector(forwardDir, -1.5).addScaledVector(rightDir, -0.85).setY(0.35);
-    const rearR = c.pos.clone().addScaledVector(forwardDir, -1.5).addScaledVector(rightDir,  0.85).setY(0.35);
-    spawnParticle(rearL, 0xbbbbbb, 0.6, 0.7, forwardDir.clone().multiplyScalar(-1.5).add(rightDir.clone().multiplyScalar(-0.6)), 1.4);
-    spawnParticle(rearR, 0xbbbbbb, 0.6, 0.7, forwardDir.clone().multiplyScalar(-1.5).add(rightDir.clone().multiplyScalar( 0.6)), 1.4);
+    const rearL = _rearL.copy(c.pos).addScaledVector(forwardDir, -1.5).addScaledVector(rightDir, -0.85).setY(0.35);
+    const rearR = _rearR.copy(c.pos).addScaledVector(forwardDir, -1.5).addScaledVector(rightDir,  0.85).setY(0.35);
+    spawnParticle(rearL, 0xbbbbbb, 0.6, 0.7, _velScratch.copy(forwardDir).multiplyScalar(-1.5).addScaledVector(rightDir, -0.6), 1.4);
+    spawnParticle(rearR, 0xbbbbbb, 0.6, 0.7, _velScratch2.copy(forwardDir).multiplyScalar(-1.5).addScaledVector(rightDir, 0.6), 1.4);
   }
 
   // Boost exhaust
   if (boosting) {
-    const rear = c.pos.clone().addScaledVector(forwardDir, -2.1).setY(0.4);
-    spawnParticle(rear, Math.random() < 0.5 ? 0x00e5ff : 0xff2e9a, 0.4, 0.35, forwardDir.clone().multiplyScalar(-6), 0.5);
+    const rear = _rear.copy(c.pos).addScaledVector(forwardDir, -2.1).setY(0.4);
+    spawnParticle(rear, Math.random() < 0.5 ? 0x00e5ff : 0xff2e9a, 0.4, 0.35, _velScratch3.copy(forwardDir).multiplyScalar(-6), 0.5);
   }
 
   updateLapProgress(c, samplePts, sampleTangents, SAMPLES);

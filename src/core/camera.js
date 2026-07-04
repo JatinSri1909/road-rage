@@ -14,18 +14,23 @@ export function triggerShake(duration, intensity) {
   _shakeIntensity = Math.max(_shakeIntensity, intensity);
 }
 
+// Reusable scratch vectors to avoid per-frame GC pressure
+const _behind  = new THREE.Vector3();
+const _desired = new THREE.Vector3();
+const _lookAt  = new THREE.Vector3();
+
 export function initCamera() {
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 2500);
   return camera;
 }
 
 export function updateCamera(camera, player, dt) {
-  const behind = new THREE.Vector3(
+  const behind = _behind.set(
     -Math.sin(player.heading) * CAM_OFFSET.z,
     CAM_OFFSET.y,
     -Math.cos(player.heading) * CAM_OFFSET.z
   );
-  const desired = new THREE.Vector3(player.pos.x, 0, player.pos.z).add(behind);
+  const desired = _desired.set(player.pos.x, 0, player.pos.z).add(behind);
   camPos.lerp(desired, 1 - Math.pow(0.001, dt));
   camera.position.copy(camPos);
 
@@ -37,7 +42,7 @@ export function updateCamera(camera, player, dt) {
     if (_shakeTime <= 0) _shakeIntensity = 0;
   }
 
-  const lookAt = new THREE.Vector3(
+  const lookAt = _lookAt.set(
     player.pos.x + Math.sin(player.heading) * CAM_LOOK_OFFSET.z,
     CAM_LOOK_OFFSET.y,
     player.pos.z + Math.cos(player.heading) * CAM_LOOK_OFFSET.z

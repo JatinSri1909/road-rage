@@ -219,7 +219,7 @@ function buildGuardrail(samplePts, sampleTangents, side, dist, color, radius, he
     return p.clone().addScaledVector(right, side * dist).setY(height);
   });
   const railCurve = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);
-  const geo = new THREE.TubeGeometry(railCurve, 360, radius, 6, true);
+  const geo = new THREE.TubeGeometry(railCurve, 160, radius, 4, true);
   const mat = new THREE.MeshStandardMaterial({ color, metalness: metallic ? 0.75 : 0.1, roughness: metallic ? 0.35 : 0.7 });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.castShadow = true;

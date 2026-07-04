@@ -20,6 +20,13 @@ import { spawnParticle } from '../effects/particles.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
+// Reusable scratch vectors to avoid per-frame GC pressure
+const _right      = new THREE.Vector3();
+const _targetPos  = new THREE.Vector3();
+const _forwardDir = new THREE.Vector3();
+const _rear        = new THREE.Vector3();
+const _velScratch  = new THREE.Vector3();
+
 /**
  * Advance a single AI car's state by one frame.
  * Mutates `car` in-place.
@@ -66,8 +73,8 @@ export function stepAI(car, allCars, samplePts, sampleTangents, curvature, SAMPL
   const targetIdx  = (idx + 6) % SAMPLES;
   const tp         = samplePts[targetIdx];
   const tt         = sampleTangents[targetIdx];
-  const right      = new THREE.Vector3().crossVectors(tt, UP).normalize();
-  const targetPos  = tp.clone().addScaledVector(right, car.laneOffset);
+  const right      = _right.crossVectors(tt, UP).normalize();
+  const targetPos  = _targetPos.copy(tp).addScaledVector(right, car.laneOffset);
 
   const dx             = targetPos.x - car.pos.x;
   const dz             = targetPos.z - car.pos.z;
@@ -112,13 +119,13 @@ export function stepAI(car, allCars, samplePts, sampleTangents, curvature, SAMPL
 
   // Boost exhaust particles
   if (car.boosting) {
-    const forwardDir = new THREE.Vector3(Math.sin(car.heading), 0, Math.cos(car.heading));
-    const rear = car.pos.clone().addScaledVector(forwardDir, -2.1).setY(0.4);
+    const forwardDir = _forwardDir.set(Math.sin(car.heading), 0, Math.cos(car.heading));
+    const rear = _rear.copy(car.pos).addScaledVector(forwardDir, -2.1).setY(0.4);
     spawnParticle(
       rear,
       Math.random() < 0.5 ? car.color : 0xff2e9a,
       0.4, 0.35,
-      forwardDir.clone().multiplyScalar(-6),
+      _velScratch.copy(forwardDir).multiplyScalar(-6),
       0.5
     );
   }

@@ -69,7 +69,7 @@ export function initScene(renderer) {
   const sunLight = new THREE.DirectionalLight(0xff7a00, 1.6);
   sunLight.position.set(80, 180, -100);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.mapSize.set(1024, 1024);
   sunLight.shadow.camera.left   = -220;
   sunLight.shadow.camera.right  =  220;
   sunLight.shadow.camera.top    =  220;

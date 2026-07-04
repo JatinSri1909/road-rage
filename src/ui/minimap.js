@@ -5,7 +5,7 @@
  * The minimap only needs the 2-D (x, z) projection; Y is ignored.
  */
 
-let mmCanvas, mmCtx;
+let mmCanvas, mmCtx, offscreenCanvas;
 let mmBounds = null;
 
 /**
@@ -16,6 +16,21 @@ export function initMinimap(samplePts) {
   if (!mmCanvas) return;
   mmCtx = mmCanvas.getContext('2d');
   _computeBounds(samplePts);
+
+  // Pre-render the track outline to offscreen canvas
+  offscreenCanvas = document.createElement('canvas');
+  offscreenCanvas.width = mmCanvas.width;
+  offscreenCanvas.height = mmCanvas.height;
+  const oCtx = offscreenCanvas.getContext('2d');
+  oCtx.strokeStyle = 'rgba(0,229,255,0.6)';
+  oCtx.lineWidth   = 3;
+  oCtx.beginPath();
+  mmBounds._pts.forEach((p, i) => {
+    const [x, y] = _project(p);
+    if (i === 0) oCtx.moveTo(x, y); else oCtx.lineTo(x, y);
+  });
+  oCtx.closePath();
+  oCtx.stroke();
 }
 
 /**
@@ -27,16 +42,10 @@ export function drawMinimap(allCars, player) {
 
   mmCtx.clearRect(0, 0, mmCanvas.width, mmCanvas.height);
 
-  // Draw track outline — fetch from the stored bounds
-  mmCtx.strokeStyle = 'rgba(0,229,255,0.6)';
-  mmCtx.lineWidth   = 3;
-  mmCtx.beginPath();
-  mmBounds._pts.forEach((p, i) => {
-    const [x, y] = _project(p);
-    if (i === 0) mmCtx.moveTo(x, y); else mmCtx.lineTo(x, y);
-  });
-  mmCtx.closePath();
-  mmCtx.stroke();
+  // Draw cached track outline
+  if (offscreenCanvas) {
+    mmCtx.drawImage(offscreenCanvas, 0, 0);
+  }
 
   // Draw car dots
   allCars.forEach(car => {

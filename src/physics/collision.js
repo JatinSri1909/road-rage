@@ -4,6 +4,14 @@ import { spawnParticle } from '../effects/particles.js';
 
 const CAR_COLLISION_RADIUS = 1.55;
 
+// Reusable scratch vectors to avoid per-frame GC pressure
+const _mid          = new THREE.Vector3();
+const _sparkVel     = new THREE.Vector3();
+const _impulse      = new THREE.Vector3();
+const _dir          = new THREE.Vector3();
+const _particlePos  = new THREE.Vector3();
+const _particleVel  = new THREE.Vector3();
+
 export function resolveCarCollisions(allCars, player) {
   for (let i = 0; i < allCars.length; i++) {
     for (let j = i + 1; j < allCars.length; j++) {
@@ -31,10 +39,10 @@ export function resolveCarCollisions(allCars, player) {
 
       if ((a === player || b === player) && impact > 0.2) {
         triggerShake(0.22, Math.min(0.3, impact * 0.4));
-        const mid = new THREE.Vector3((a.pos.x + b.pos.x) / 2, 0.6, (a.pos.z + b.pos.z) / 2);
+        const mid = _mid.set((a.pos.x + b.pos.x) / 2, 0.6, (a.pos.z + b.pos.z) / 2);
         for (let k = 0; k < 5; k++) {
           const ang = Math.random() * Math.PI * 2;
-          spawnParticle(mid, 0xffb020, 0.35, 0.4, new THREE.Vector3(Math.cos(ang) * 3, 1.5, Math.sin(ang) * 3), -0.6);
+          spawnParticle(mid, 0xffb020, 0.35, 0.4, _sparkVel.set(Math.cos(ang) * 3, 1.5, Math.sin(ang) * 3), -0.6);
         }
       }
     }
@@ -44,7 +52,7 @@ export function resolveCarCollisions(allCars, player) {
 function applyCollisionImpulse(car, nx, nz, impact) {
   if (car.velocity) {
     car.velocity.multiplyScalar(1 - 0.45 * impact);
-    car.velocity.add(new THREE.Vector3(nx * 2 * impact, 0, nz * 2 * impact));
+    car.velocity.add(_impulse.set(nx * 2 * impact, 0, nz * 2 * impact));
   } else {
     car.speed *= (1 - 0.45 * impact);
   }
@@ -65,7 +73,7 @@ export function checkBoostPads(allCars, samplePts, SAMPLES, BOOST_PAD_IDX) {
 }
 
 function applyBoostPad(car) {
-  const dir = new THREE.Vector3(Math.sin(car.heading), 0, Math.cos(car.heading));
+  const dir = _dir.set(Math.sin(car.heading), 0, Math.cos(car.heading));
   if (car.velocity) {
     car.velocity.addScaledVector(dir, 11);
     car.nitro = Math.min(100, car.nitro + 30);
@@ -75,9 +83,9 @@ function applyBoostPad(car) {
   for (let k = 0; k < 8; k++) {
     const ang = Math.random() * Math.PI * 2, r = 0.3 + Math.random() * 0.6;
     spawnParticle(
-      car.pos.clone().add(new THREE.Vector3(Math.cos(ang) * r, 0.5, Math.sin(ang) * r)),
+      _particlePos.copy(car.pos).add(_particleVel.set(Math.cos(ang) * r, 0.5, Math.sin(ang) * r)),
       Math.random() < 0.5 ? 0x00e5ff : 0xff2e9a, 0.5, 0.5,
-      new THREE.Vector3(Math.cos(ang) * 2, 2, Math.sin(ang) * 2), 0.8
+      _particleVel.set(Math.cos(ang) * 2, 2, Math.sin(ang) * 2), 0.8
     );
   }
 }
