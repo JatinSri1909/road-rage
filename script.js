@@ -1459,6 +1459,7 @@ function drawMinimap(){
 /* ============================= RACE STATE / HUD ============================= */
 let raceStarted = false;
 let raceOver = false;
+let countdown = 0;
 const lapNumEl = document.getElementById('lapNum');
 const posLineEl = document.getElementById('posLineText');
 const timeNumEl = document.getElementById('timeNum');
@@ -1565,34 +1566,42 @@ async function enterMobilePresentation(){
 }
 
 function beginRace() {
+  raceStarted = false;
   countdown = 3; // Reset countdown timer
   raceTime = 0;
   raceOver = false;
 
-  // 1. Reset player position and completely zero out speeds
-  player.position.set(0, 0, 0); // Or wherever your track start coordinates are
-  player.speed = 0;             // Wipes velocity
-  if (player.velocity) player.velocity.set(0, 0, 0); 
-  player.finished = false;
+  // 1. Reset player speeds safely without forcing coordinates
+  if (typeof player !== 'undefined' && player) {
+    player.speed = 0; // Wipes out forward speed from previous race
+    if (player.velocity && typeof player.velocity.set === 'function') {
+      player.velocity.set(0, 0, 0); 
+    }
+    player.finished = false;
+  }
 
-  // 2. Clear out any sticky keyboard/gyro inputs
+  // 2. Clear out any sticky inputs
   input.steer = 0;
   gyroSmoothed = 0;
 
-  // 3. Reset all AI/Opponent cars so they don't drive away early either
-  if (Array.isArray(bots)) {
-    bots.forEach((bot, index) => {
-      bot.speed = 0;
-      if (bot.velocity) bot.velocity.set(0, 0, 0);
-      bot.finished = false;
-      // If your code resets bot positions via a specific layout formula:
-      // bot.position.set(startX, startY, startZ);
+  // 3. Safe check prevents a crash if there are no bots/opponents in your game
+  if (typeof bots !== 'undefined' && Array.isArray(bots)) {
+    bots.forEach((bot) => {
+      if (bot) {
+        bot.speed = 0;
+        if (bot.velocity && typeof bot.velocity.set === 'function') {
+          bot.velocity.set(0, 0, 0);
+        }
+        bot.finished = false;
+      }
     });
   }
 
   // Hide overlay menu, show HUD layout
-  overlay.classList.add('hidden');
-  hud.classList.remove('hidden');
+  if (typeof overlay !== 'undefined' && overlay) overlay.classList.add('hidden');
+  if (typeof hud !== 'undefined' && hud) hud.classList.remove('hidden');
+
+  runCountdown();
 }
 
 function resetRace(){
@@ -1639,17 +1648,19 @@ function resetRace(){
 }
 
 function runCountdown(){
+  countdown = 3;
+  raceStarted = false;
   hud.classList.remove('hidden');
   countdownEl.style.display = 'flex';
-  let n = 3;
-  countdownEl.textContent = n;
+  countdownEl.textContent = countdown;
   const iv = setInterval(()=>{
-    n -= 1;
-    if (n>0) countdownEl.textContent = n;
-    else if (n===0) countdownEl.textContent = 'GO!';
+    countdown -= 1;
+    if (countdown > 0) countdownEl.textContent = countdown;
+    else if (countdown === 0) countdownEl.textContent = 'GO!';
     else {
       clearInterval(iv);
       countdownEl.style.display = 'none';
+      countdown = 0;
       raceStarted = true;
       if (gyroEnabled) calibrateGyro();
     }
