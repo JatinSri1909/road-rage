@@ -27,6 +27,7 @@ import { loadCar, getCarIds } from './content/cars/index.js';
 import { buildTrackMesh }  from './entities/track-builder.js';
 import { createCarMesh }   from './entities/car.js';
 import { makeCarState }    from './entities/car.js';
+import { preloadCarModel } from './entities/car.js';
 
 import { initParticles, updateParticles } from './effects/particles.js';
 
@@ -39,7 +40,7 @@ import { initMinimap, drawMinimap } from './ui/minimap.js';
 import { initOverlay }             from './ui/overlay.js';
 import { initCarSelect }           from './ui/car-select.js';
 
-import { initRaceState, stepRace, checkFinish, getRaceState, resetRaceState } from './race/race-state.js';
+import { initRaceState, stepRace, tickRace, getRaceState, resetRaceState } from './race/race-state.js';
 import { initCountdown }  from './race/countdown.js';
 import { stepPlayer }     from './physics/vehicle-physics.js';
 import { stepAI }         from './race/ai-driver.js';
@@ -71,6 +72,12 @@ if (window.visualViewport) {
   // to know how many cars exist.
   const carDefs = await Promise.all(getCarIds().map(loadCar));
 
+  // Start downloading/decoding any model-based car (e.g. Viper-X's glTF)
+  // right away, while the player is still on the car-select screen — so by
+  // the time they hit Start, createCarMesh() hits the cache instead of
+  // blocking on a fresh fetch + Draco decode.
+  carDefs.forEach(preloadCarModel);
+
   let selectedCarDef = carDefs[0];
   initCarSelect({
     cars: carDefs,
@@ -88,20 +95,22 @@ if (window.visualViewport) {
         gameBuilt = true;
         document.getElementById('carSelect')?.classList.add('hidden');
 
-        // Player — uses whichever car was selected in the garage screen.
-        const playerMesh = createCarMesh(selectedCarDef, 0x00e5ff, 0x0a2530, 1);
+        // Player — uses whichever car was selected in the garage screen,
+        // including that car's own paint/accent colors. createCarMesh is
+        // async because model-based cars (e.g. Viper-X) load a glTF file.
+        const playerMesh = await createCarMesh(selectedCarDef, selectedCarDef.color, selectedCarDef.accentColor, 1);
         scene.add(playerMesh);
-        player = makeCarState(playerMesh, 0x00e5ff, samplePts, sampleTangents, BOOST_PAD_IDX, undefined, selectedCarDef.stats);
+        player = makeCarState(playerMesh, selectedCarDef.color, samplePts, sampleTangents, BOOST_PAD_IDX, undefined, selectedCarDef.stats);
 
         // AI — always drives the first registered car for now. Easy future
         // upgrade: pick a random carDefs[i] per AI racer the same way.
         const aiColors = [0xff2e9a, 0xffb020, 0x8aff4d];
         const aiCarDef = carDefs[0];
-        aiCars = aiColors.map((color, idx) => {
-          const mesh = createCarMesh(aiCarDef, color, 0x1a1a1a, idx + 2);
+        aiCars = await Promise.all(aiColors.map(async (color, idx) => {
+          const mesh = await createCarMesh(aiCarDef, color, 0x1a1a1a, idx + 2);
           scene.add(mesh);
           return makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_IDX, idx, aiCarDef.stats);
-        });
+        }));
         allCars = [player, ...aiCars];
 
         // Particles
@@ -132,7 +141,7 @@ if (window.visualViewport) {
             aiCars.forEach(c => stepAI(c, allCars, samplePts, sampleTangents, curvature, SAMPLES, dt));
             resolveCarCollisions(allCars, player);
             checkBoostPads(allCars, samplePts, SAMPLES, BOOST_PAD_IDX);
-            checkFinish(player);
+            tickRace(dt); // advances the race clock AND checks player finish — this was missing, so finishTime was always 0
             updateHUD(player, allCars, dt);
             drawMinimap(allCars, player);
           }
