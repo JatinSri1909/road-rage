@@ -15,26 +15,34 @@ export function initJoystick(input) {
   const joyKnob      = document.getElementById('joyKnob');
   if (!joyContainer || !joyKnob) return;
 
-  let joyActive  = false;
-  let dragStart  = { x: 0, y: 0 };
-  let maxRadius  = 50;
+  let joyActive     = false;
+  let activeTouchId = null;
+  let dragStart     = { x: 0, y: 0 };
+  let maxRadius     = 50;
 
   joyContainer.addEventListener('touchstart', e => {
-    joyActive = true;
-    const touch = e.touches[0];
+    // Ignore if a joystick touch is already tracked (e.g. a stray second
+    // finger landing on the joystick while steering) — first touch wins.
+    if (joyActive) return;
+
+    const touch = e.changedTouches[0]; // the touch that just started, not touches[0]
+    activeTouchId = touch.identifier;
+    joyActive     = true;
+
     const rect  = joyContainer.getBoundingClientRect();
     // Anchor at container centre, not touch point, to give full range
     dragStart.x = rect.left + rect.width  / 2;
     dragStart.y = rect.top  + rect.height / 2;
     maxRadius   = rect.width / 2;
     _handleMove(touch);
+    e.preventDefault();
   }, { passive: false });
 
   window.addEventListener('touchmove', e => {
     if (!joyActive) return;
     for (let i = 0; i < e.touches.length; i++) {
       const t = e.touches[i];
-      if (t.target === joyContainer || joyContainer.contains(t.target)) {
+      if (t.identifier === activeTouchId) {
         _handleMove(t);
         e.preventDefault();
         break;
@@ -43,7 +51,8 @@ export function initJoystick(input) {
   }, { passive: false });
 
   const reset = () => {
-    joyActive = false;
+    joyActive     = false;
+    activeTouchId = null;
     joyKnob.style.transform = 'translate(0px, 0px)';
     input.steer       = 0;
     input.steerActive = false;
@@ -53,8 +62,20 @@ export function initJoystick(input) {
     input.right       = false;
   };
 
-  window.addEventListener('touchend',    reset);
-  window.addEventListener('touchcancel', reset);
+  const handleTouchEnd = e => {
+    if (!joyActive) return;
+    // Only reset if the joystick's OWN touch is among the ones that ended —
+    // other fingers lifting (nitro, drift, etc.) must not affect the joystick.
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      if (e.changedTouches[i].identifier === activeTouchId) {
+        reset();
+        break;
+      }
+    }
+  };
+
+  window.addEventListener('touchend',    handleTouchEnd);
+  window.addEventListener('touchcancel', handleTouchEnd);
 
   function _handleMove(touch) {
     let dx   = touch.clientX - dragStart.x;
