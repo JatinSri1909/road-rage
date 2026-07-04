@@ -18,7 +18,7 @@ html,body { width:100%; height:100vh; height:100dvh; overflow:hidden; background
 #posLineText { font-family:'Orbitron',sans-serif; font-size:13px; color:#ff2e9a; margin-top:2px; letter-spacing:2px; }
 #timeLine { font-size:14px; color:#9fb0c0; margin-top:4px; letter-spacing:1px; }
 
-#gaugeWrap { bottom:16px; right:16px; width:150px; height:150px; display:flex; align-items:center; justify-content:center; }
+#gaugeWrap { position:absolute; bottom:16px; right:16px; width:150px; height:150px; display:flex; align-items:center; justify-content:center; }
 #gaugeFace {
   position:relative; width:132px; height:132px; border-radius:50%;
   background: radial-gradient(circle at 50% 45%, #12151c 0%, #090a0d 70%);
@@ -61,63 +61,88 @@ html,body { width:100%; height:100vh; height:100dvh; overflow:hidden; background
 
 #touchControls { position:absolute; bottom:0; left:0; width:100%; height:100%; pointer-events:none; display:none; }
 
-/* Shared button base */
-.btn {
-  position:absolute; pointer-events:auto;
-  display:flex; align-items:center; justify-content:center; flex-direction:column;
-  font-family:'Orbitron',sans-serif; color:#e8ecf1;
-  background:rgba(13,15,20,0.55); border:1px solid rgba(0,229,255,0.35);
-  border-radius:50%; box-shadow:0 0 14px rgba(0,229,255,0.08);
-  -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
-  touch-action:none;
+/* Joystick Container bottom-left */
+.joystick-container {
+  position: absolute;
+  bottom: 30px;
+  left: 40px;
+  width: 140px;
+  height: 140px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(0, 229, 255, 0.35);
+  border-radius: 50%;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  pointer-events: auto;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
 }
-.btn:active, .btn.active { background:rgba(0,229,255,0.28); border-color:#00e5ff; box-shadow:0 0 20px rgba(0,229,255,0.5); }
 
-/* Action buttons (bottom left) */
-#actionButtons {
-  position:absolute;
-  left:14px;
-  bottom:14px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  pointer-events:none;
+.joystick-knob {
+  width: 55px;
+  height: 55px;
+  background: radial-gradient(circle, #00e5ff 0%, #00869b 100%);
+  border-radius: 50%;
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
+  position: absolute;
+  transform: translate(0px, 0px);
+  pointer-events: none;
+  transition: transform 0.05s ease-out;
 }
-.actionBtn {
-  position:relative;
-  width:64px;
-  height:64px;
-  border-radius:18px;
-  pointer-events:auto;
-}
-.actionBtn svg { width:26px; height:26px; pointer-events:none; }
-#btnNos { color:#7f2fff; border-color:rgba(127,47,255,0.5); }
-#btnNos.active { background:rgba(127,47,255,0.35); border-color:#7f2fff; box-shadow:0 0 20px rgba(127,47,255,0.5); }
-#btnDrift { color:#ffb020; border-color:rgba(255,176,32,0.45); }
-#btnDrift.active { background:rgba(255,176,32,0.35); border-color:#ffb020; box-shadow:0 0 20px rgba(255,176,32,0.5); }
 
-/* Pedal buttons (bottom right) */
-#pedalButtons {
-  position:absolute;
-  right:14px;
-  bottom:14px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  pointer-events:none;
+/* Action Buttons Container bottom-right */
+.action-container {
+  position: absolute;
+  bottom: 30px;
+  right: 40px;
+  display: flex;
+  gap: 20px;
+  pointer-events: auto;
 }
-.pedalBtn {
-  position:relative;
-  width:72px;
-  height:72px;
-  border-radius:50%;
-  pointer-events:auto;
+
+.btn-action {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 2px solid #ff2e9a;
+  background: rgba(255, 46, 154, 0.15);
+  color: #ff2e9a;
+  box-shadow: 0 0 10px rgba(255, 46, 154, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
-.pedalBtn svg { width:28px; height:28px; pointer-events:none; }
-#btnGas { color:#00ff9d; border-color:rgba(0,255,157,0.45); }
-#btnGas.active { background:rgba(0,255,157,0.25); border-color:#00ff9d; box-shadow:0 0 20px rgba(0,255,157,0.4); }
-#btnBrake { color:#ff2e5a; border-color:rgba(255,46,90,0.45); }
-#btnBrake.active { background:rgba(255,46,90,0.25); border-color:#ff2e5a; box-shadow:0 0 20px rgba(255,46,90,0.4); }
+
+.btn-action:active, .btn-action.active {
+  background: rgba(255, 46, 154, 0.4);
+  box-shadow: 0 0 20px #ff2e9a;
+}
+
+.btn-nitro {
+  border-color: #00e5ff;
+  background: rgba(0, 229, 255, 0.15);
+  color: #00e5ff;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+.btn-nitro:active, .btn-nitro.active {
+  background: rgba(0, 229, 255, 0.4);
+  box-shadow: 0 0 20px #00e5ff;
+}
+
+.btn-action svg {
+  width: 28px;
+  height: 28px;
+  stroke: currentColor;
+  pointer-events: none;
+}
 
 #overlay {
   position:fixed; inset:0; z-index:20;
@@ -208,81 +233,153 @@ body.mobile-device #touchControls { display:block; }
     height: 112px;
   }
 
-  #actionButtons {
-    left: 10px;
-    bottom: 10px;
-    gap: 8px;
+  .joystick-container {
+    bottom: 20px;
+    left: 20px;
+    width: 120px;
+    height: 120px;
   }
-
-  .actionBtn {
-    width: 58px;
-    height: 58px;
-    border-radius: 16px;
+  .joystick-knob {
+    width: 46px;
+    height: 46px;
   }
-
-  .actionBtn svg {
-    width: 22px;
-    height: 22px;
+  .action-container {
+    bottom: 20px;
+    right: 20px;
+    gap: 12px;
   }
-
-  #pedalButtons {
-    right: 10px;
-    bottom: 10px;
-    gap: 8px;
-  }
-
-  .pedalBtn {
-    width: 64px;
-    height: 64px;
-  }
-
-  .pedalBtn svg {
-    width: 24px;
-    height: 24px;
+  .btn-action {
+    width: 60px;
+    height: 60px;
+    font-size: 11px;
   }
 }
 
 @media (pointer: coarse) and (orientation: landscape) {
   #topLeft {
+    position: absolute;
     top: 10px;
-    left: 96px;
-    padding: 6px 9px;
-    max-width: 30vw;
+    left: 110px;
+    width: 90px;
+    height: 90px;
+    padding: 6px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    max-width: none;
   }
 
   #lapLine {
-    font-size: 13px;
+    font-size: 12px;
+    text-align: center;
   }
 
   #posLineText {
-    font-size: 9px;
+    font-size: 10px;
+    margin-top: 2px;
+    text-align: center;
   }
 
   #timeLine {
-    font-size: 10px;
+    font-size: 9px;
+    margin-top: 3px;
+    text-align: center;
   }
 
   #minimapWrap {
+    position: absolute;
     top: 10px;
     left: 10px;
     bottom: auto;
-    width: 76px;
-    height: 76px;
+    width: 90px;
+    height: 90px;
     padding: 3px;
+    box-sizing: border-box;
   }
 
   #gaugeWrap {
-    display: none;
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: auto;
+    right: auto;
+    width: 100px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  #actionButtons {
-    left: 10px;
-    bottom: 10px;
+  #gaugeFace {
+    width: 100%;
+    height: 100%;
+    background: none;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
   }
 
-  #pedalButtons {
-    right: 10px;
-    bottom: 10px;
+  #needle {
+    display: none !important;
+  }
+
+  #hub {
+    display: none !important;
+  }
+
+  #speedNum {
+    position: static;
+    font-size: 28px;
+    font-weight: 700;
+    color: #00e5ff;
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
+    line-height: 1;
+    width: auto;
+    text-align: center;
+  }
+
+  #speedUnit {
+    position: static;
+    font-size: 9px;
+    color: #7fd8e8;
+    letter-spacing: 2px;
+    margin-top: 2px;
+    line-height: 1;
+    width: auto;
+    text-align: center;
+  }
+
+  .joystick-container {
+    bottom: 25px;
+    left: 35px;
+    width: 110px;
+    height: 110px;
+  }
+
+  .joystick-knob {
+    width: 44px;
+    height: 44px;
+  }
+
+  .action-container {
+    bottom: 25px;
+    right: 35px;
+    gap: 15px;
+  }
+
+  .btn-action {
+    width: 58px;
+    height: 58px;
+  }
+  .btn-action svg {
+    width: 22px;
+    height: 22px;
   }
 
   #topRightCluster {

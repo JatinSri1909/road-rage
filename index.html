@@ -55,35 +55,22 @@
   </div>
 
   <div id="touchControls">
-    <!-- Bottom Left: Action Buttons -->
-    <div id="actionButtons">
-      <div class="btn actionBtn" id="btnNos" aria-label="Nitro">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-        </svg>
-      </div>
-      <div class="btn actionBtn" id="btnDrift" aria-label="Drift">
+    <!-- Bottom Left: Joystick -->
+    <div class="joystick-container" id="joyContainer">
+      <div class="joystick-knob" id="joyKnob"></div>
+    </div>
+    <!-- Bottom Right: Action Buttons -->
+    <div class="action-container">
+      <div class="btn-action" id="btnDrift" aria-label="Drift">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/>
-          <path d="M12 2a10 10 0 0 1 0 20 10 10 0 0 1 0-20"/>
           <path d="M12 12l-4-4"/>
           <path d="M12 12l4 4"/>
         </svg>
       </div>
-    </div>
-
-    <!-- Bottom Right: Gas / Brake -->
-    <div id="pedalButtons">
-      <div class="btn pedalBtn" id="btnGas" aria-label="Gas">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 19V5"/>
-          <path d="M5 12l7-7 7 7"/>
-        </svg>
-      </div>
-      <div class="btn pedalBtn" id="btnBrake" aria-label="Brake">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 5v14"/>
-          <path d="M19 12l-7 7-7-7"/>
+      <div class="btn-action btn-nitro" id="btnNitro" aria-label="Nitro">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
         </svg>
       </div>
     </div>

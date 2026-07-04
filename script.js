@@ -995,118 +995,90 @@ window.addEventListener('keyup', e=>{
   if (e.key === ' ') input.boost = false;
 });
 
-// Touch buttons helper
-function bindHold(id, key){
-  const el = document.getElementById(id);
-  if (!el) return;
-  let activePointer = null;
-  const on = ev=>{
-    ev.preventDefault();
-    activePointer = ev.pointerId;
-    input[key] = true;
-    el.classList.add('active');
-    if (el.setPointerCapture) el.setPointerCapture(ev.pointerId);
-  };
-  const off = ev=>{
-    if (activePointer !== null && ev.pointerId !== activePointer) return;
-    activePointer = null;
-    input[key] = false;
-    el.classList.remove('active');
-  };
-  el.addEventListener('pointerdown', on);
-  el.addEventListener('pointerup', off);
-  el.addEventListener('pointercancel', off);
-  el.addEventListener('pointerleave', off);
-}
+/* ============================= JOYSTICK MOBILE CONTROLS ============================= */
+if (isMobileDevice) {
+  const joyContainer = document.getElementById('joyContainer');
+  const joyKnob = document.getElementById('joyKnob');
+  const btnDrift = document.getElementById('btnDrift');
+  const btnNitro = document.getElementById('btnNitro');
 
-bindHold('btnDrift','drift');
-bindHold('btnNos','boost');
-bindHold('btnGas','gas');
-bindHold('btnBrake','brake');
+  let joyActive = false;
+  let dragStart = { x: 0, y: 0 };
+  let maxRadius = 50;
 
-/* ============================= GYROSCOPE STEERING ============================= */
-let gyroEnabled = false;
-let gyroOffset = 0;
-let gyroRaw = 0;
-let gyroSmoothed = 0;
-let gyroCalibrated = false;
+  joyContainer.addEventListener('touchstart', e => {
+    joyActive = true;
+    const touch = e.touches[0];
+    const rect = joyContainer.getBoundingClientRect();
+    dragStart.x = rect.left + rect.width / 2;
+    dragStart.y = rect.top + rect.height / 2;
+    maxRadius = rect.width / 2;
+    handleJoystickMove(touch);
+  }, { passive: false });
 
-function handleOrientation(e) {
-  if (raceOver || countdown > 0) {
+  window.addEventListener('touchmove', e => {
+    if (!joyActive) return;
+    for (let i = 0; i < e.touches.length; i++) {
+      if (e.touches[i].target === joyContainer || joyContainer.contains(e.touches[i].target)) {
+        handleJoystickMove(e.touches[i]);
+        e.preventDefault();
+        break;
+      }
+    }
+  }, { passive: false });
+
+  const resetJoystickInput = () => {
+    joyActive = false;
+    joyKnob.style.transform = 'translate(0px, 0px)';
     input.steer = 0;
     input.steerActive = false;
-    return;
-  }
+    input.gas = false;
+    input.brake = false;
+    input.left = false;
+    input.right = false;
+  };
 
-  let val = 0;
-  const isLandscape = window.orientation === 90 || window.orientation === -90 || 
-                      (screen.orientation && screen.orientation.type.includes('landscape'));
+  window.addEventListener('touchend', resetJoystickInput);
+  window.addEventListener('touchcancel', resetJoystickInput);
 
-  if (isLandscape) {
-    const orientationAngle = window.orientation !== undefined ? window.orientation : 
-                             (screen.orientation && screen.orientation.angle ? screen.orientation.angle : 90);
-    const directionFactor = (orientationAngle === 90) ? -1 : 1;
+  function handleJoystickMove(touch) {
+    let dx = touch.clientX - dragStart.x;
+    let dy = touch.clientY - dragStart.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
 
-    let targetBeta = e.beta;
-    if (targetBeta === null || targetBeta === undefined) return;
-
-    let tilt = targetBeta * directionFactor;
-    if (Math.abs(tilt) > 45) {
-      tilt = tilt > 0 ? tilt - 90 : tilt + 90;
+    if (dist > maxRadius) {
+      dx = (dx / dist) * maxRadius;
+      dy = (dy / dist) * maxRadius;
     }
-    val = tilt;
-  } else {
-    if (e.gamma === null || e.gamma === undefined) return;
-    val = -e.gamma; 
+
+    joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    const normX = dx / maxRadius;
+    const normY = dy / maxRadius;
+
+    // Lateral controls steering mapping
+    input.steer = -normX;
+    input.steerActive = Math.abs(normX) > 0.05;
+
+    // Keyboard fallback fields matching
+    if (normX < -0.15) { input.left = true; input.right = false; }
+    else if (normX > 0.15) { input.right = true; input.left = false; }
+    else { input.left = false; input.right = false; }
+
+    // Longitudinal controls mapping (Up is Gas acceleration, Down is Brake/Reverse)
+    if (normY < -0.15) { input.gas = true; input.brake = false; }
+    else if (normY > 0.15) { input.brake = true; input.gas = false; }
+    else { input.gas = false; input.brake = false; }
   }
 
-  gyroRaw = val;
-  if (!gyroCalibrated) {
-    gyroOffset = gyroRaw;
-    gyroCalibrated = true;
-  }
-
-  let adjusted = gyroRaw - gyroOffset;
+  // Right-hand Side button listeners setup
+  btnDrift.addEventListener('touchstart', (e) => { input.drift = true; btnDrift.classList.add('active'); e.preventDefault(); }, { passive: false });
+  btnDrift.addEventListener('touchend', () => { input.drift = false; btnDrift.classList.remove('active'); });
+  btnDrift.addEventListener('touchcancel', () => { input.drift = false; btnDrift.classList.remove('active'); });
   
-  /* === SENSITIVITY TUNING HACKS === */
-  const MAX_STEER_ANGLE = 55; // INCREASED from 22 to 55: Requires more tilt for full turns
-  let targetSteer = adjusted / MAX_STEER_ANGLE;
-  targetSteer = THREE.MathUtils.clamp(targetSteer, -1, 1);
-
-  const DEADZONE = 0.06; // Slightly widened deadzone to prevent slight drifting
-  if (Math.abs(targetSteer) < DEADZONE) {
-    targetSteer = 0;
-  }
-
-  // LOWERED from 0.18 to 0.07: Creates a smooth, dampening effect that filters hand vibrations
-  gyroSmoothed += (targetSteer - gyroSmoothed) * 0.07; 
-  
-  input.steer = gyroSmoothed;
-  input.steerActive = Math.abs(gyroSmoothed) > 0.02;
-}
-
-async function requestGyroPermission() {
-  // Explicit gesture sensor permission routine required by modern platforms
-  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    try {
-      const response = await DeviceOrientationEvent.requestPermission();
-      if (response === 'granted') {
-        gyroEnabled = true;
-        window.addEventListener('deviceorientation', handleOrientation);
-      }
-    } catch (e) {
-      console.warn('Gyro permission request failed:', e);
-    }
-  } else {
-    // Standard Android Chrome: event handler fallback
-    gyroEnabled = true;
-    window.addEventListener('deviceorientation', handleOrientation);
-  }
-}
-
-function calibrateGyro() {
-  gyroOffset = gyroRaw;
-  gyroCalibrated = true;
+  btnNitro.addEventListener('touchstart', (e) => { input.boost = true; btnNitro.classList.add('active'); e.preventDefault(); }, { passive: false });
+  btnNitro.addEventListener('touchend', () => { input.boost = false; btnNitro.classList.remove('active'); });
+  btnNitro.addEventListener('touchcancel', () => { input.boost = false; btnNitro.classList.remove('active'); });
 }
 
 /* ============================= HELPERS ============================= */
@@ -1566,36 +1538,11 @@ async function enterMobilePresentation(){
 }
 
 function beginRace() {
+  resetRace();
   raceStarted = false;
   countdown = 3; // Reset countdown timer
   raceTime = 0;
   raceOver = false;
-
-  // 1. Reset player speeds safely without forcing coordinates
-  if (typeof player !== 'undefined' && player) {
-    player.speed = 0; // Wipes out forward speed from previous race
-    if (player.velocity && typeof player.velocity.set === 'function') {
-      player.velocity.set(0, 0, 0); 
-    }
-    player.finished = false;
-  }
-
-  // 2. Clear out any sticky inputs
-  input.steer = 0;
-  gyroSmoothed = 0;
-
-  // 3. Safe check prevents a crash if there are no bots/opponents in your game
-  if (typeof bots !== 'undefined' && Array.isArray(bots)) {
-    bots.forEach((bot) => {
-      if (bot) {
-        bot.speed = 0;
-        if (bot.velocity && typeof bot.velocity.set === 'function') {
-          bot.velocity.set(0, 0, 0);
-        }
-        bot.finished = false;
-      }
-    });
-  }
 
   // Hide overlay menu, show HUD layout
   if (typeof overlay !== 'undefined' && overlay) overlay.classList.add('hidden');
@@ -1612,9 +1559,6 @@ function resetRace(){
   input.brake = false;
   input.drift = false;
   input.boost = false;
-  
-  gyroCalibrated = false;
-  gyroSmoothed = 0;
   
   player.pos.copy(samplePts[0]); player.lastSampleIdx=0; player.maxSampleIdx=0;
   player.heading = Math.atan2(sampleTangents[0].x, sampleTangents[0].z);
@@ -1662,7 +1606,6 @@ function runCountdown(){
       countdownEl.style.display = 'none';
       countdown = 0;
       raceStarted = true;
-      if (gyroEnabled) calibrateGyro();
     }
   }, 800);
 }
@@ -1673,7 +1616,6 @@ async function handleStart(){
 
   if (isMobileDevice) {
     await enterMobilePresentation();
-    await requestGyroPermission();
     if (!isLandscapeMode()) {
       pendingMobileStart = true;
       finishStats.innerHTML = '<div>Rotate to landscape to start.</div>';
