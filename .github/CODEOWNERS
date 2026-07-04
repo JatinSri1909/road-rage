@@ -1,0 +1,7 @@
+# GitHub CODEOWNERS
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Each line is a pattern followed by one or more owners.
+# These owners will be requested for review when a pull request touches matching files.
+
+*       @JatinSri1909
