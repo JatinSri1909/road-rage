@@ -2,8 +2,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   // No base needed for local dev; set to '/neon-circuit/' if deploying to a subpath
+  base: './',
   build: {
-    base: './',
     target: 'esnext',
     // Each track/car chunk is loaded on demand, so the initial bundle stays small.
     // Vite handles the split automatically via dynamic import() in the registries.
