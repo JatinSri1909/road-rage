@@ -102,11 +102,10 @@ if (window.visualViewport) {
         scene.add(playerMesh);
         player = makeCarState(playerMesh, selectedCarDef.color, samplePts, sampleTangents, BOOST_PAD_IDX, undefined, selectedCarDef.stats);
 
-        // AI — always drives the first registered car for now. Easy future
-        // upgrade: pick a random carDefs[i] per AI racer the same way.
+        // AI — distribute different registered cars to make the race look diverse.
         const aiColors = [0xff2e9a, 0xffb020, 0x8aff4d];
-        const aiCarDef = carDefs[0];
         aiCars = await Promise.all(aiColors.map(async (color, idx) => {
+          const aiCarDef = carDefs[(idx + 1) % carDefs.length];
           const mesh = await createCarMesh(aiCarDef, color, 0x1a1a1a, idx + 2);
           scene.add(mesh);
           return makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_IDX, idx, aiCarDef.stats);

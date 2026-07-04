@@ -340,25 +340,43 @@ async function buildModelBody(carDef, bodyColor, accentColor, carNumber) {
     }
   });
 
-  const body = root.getObjectByName('body');
-  if (body) body.material.color.setHex(bodyColor);
+  const mappings = carDef.nodeMappings || {
+    body: ['body'],
+    trim: ['trim'],
+    rims: ['rim_fl', 'rim_fr', 'rim_rl', 'rim_rr'],
+    glass: ['glass'],
+    wheels: ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr']
+  };
 
-  const trim = root.getObjectByName('trim');
-  if (trim) trim.material.color.setHex(accentColor);
+  const getObjects = (names) => {
+    if (!names) return [];
+    const arr = Array.isArray(names) ? names : [names];
+    return arr.map(name => root.getObjectByName(name)).filter(Boolean);
+  };
 
-  ['rim_fl', 'rim_fr', 'rim_rl', 'rim_rr'].forEach(name => {
-    const rim = root.getObjectByName(name);
-    if (rim) { rim.material.metalness = 1.0; rim.material.roughness = 0.25; }
+  getObjects(mappings.body).forEach(node => {
+    if (node.material) node.material.color.setHex(bodyColor);
   });
 
-  const glass = root.getObjectByName('glass');
-  if (glass) { glass.material.transparent = true; glass.material.opacity = 0.6; }
+  getObjects(mappings.trim).forEach(node => {
+    if (node.material) node.material.color.setHex(accentColor);
+  });
 
-  // Wheel groups double as the engine's spin targets (same contract as
-  // buildWheels(): rotation.x gets nudged each frame by speed).
-  const wheels = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr']
-    .map(name => root.getObjectByName(name))
-    .filter(Boolean);
+  getObjects(mappings.rims).forEach(node => {
+    if (node.material) {
+      node.material.metalness = 1.0;
+      node.material.roughness = 0.25;
+    }
+  });
+
+  getObjects(mappings.glass).forEach(node => {
+    if (node.material) {
+      node.material.transparent = true;
+      node.material.opacity = 0.6;
+    }
+  });
+
+  const wheels = getObjects(mappings.wheels);
 
   // Model units/orientation rarely match this engine's out of the box —
   // modelScale/modelRotationY are tuning knobs on the CarDefinition.
