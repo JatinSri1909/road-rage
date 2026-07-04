@@ -1,0 +1,21 @@
+{
+  "name": "neon-circuit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "vite preview",
+    "lint": "eslint src --ext .js",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "vite": "^5.2.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "three": "^0.128.0"
+  }
+}
