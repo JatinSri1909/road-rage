@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { computeRank, ordinal } from '../race/ranking.js';
+import { getTopSpeedKmh, DEFAULT_STATS } from '../physics/vehicle-physics.js';
 
 // Cached DOM references
 let lapNumEl, posLineEl, timeNumEl, needleEl, speedNumEl, nitroFillEl;
@@ -44,12 +45,14 @@ export function updateHUD(player, allCars, dt) {
   // Position
   if (posLineEl) posLineEl.textContent = ordinal(computeRank(player, allCars));
 
-  // Speedometer
+  // Speedometer — gauge max matches this car's real top speed (with nitro boost),
+  // so faster cars actually show a higher reading instead of clipping at 150.
+  const topSpeedKmh   = getTopSpeedKmh(player.stats || DEFAULT_STATS);
   const kmh           = Math.abs(player.speed) * 3.6;
-  const displaySpeed  = Math.min(Math.round(kmh), 150);
+  const displaySpeed  = Math.min(Math.round(kmh), Math.round(topSpeedKmh));
   if (speedNumEl) speedNumEl.textContent = displaySpeed;
 
-  const frac  = THREE.MathUtils.clamp(displaySpeed / 150, 0, 1);
+  const frac  = THREE.MathUtils.clamp(displaySpeed / topSpeedKmh, 0, 1);
   const angle = -120 + frac * 240;
   if (needleEl) needleEl.style.transform = `translateX(-50%) rotate(${angle}deg)`;
 

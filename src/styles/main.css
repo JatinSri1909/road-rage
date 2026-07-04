@@ -243,6 +243,37 @@ html, body {
   pointer-events: auto;
 }
 
+/* ── Car select (pre-race picker) ─────────────────────────────────────────── */
+
+.car-select {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+  max-width: 360px; margin-top: 22px;
+}
+.car-select.hidden { display: none; }
+
+.car-option {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 10px 16px; min-width: 108px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(143,162,179,0.3); border-radius: 12px;
+  color: #6b7c8c; cursor: pointer; pointer-events: auto;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.car-option-name {
+  font-family: 'Orbitron', sans-serif; font-size: 12px; letter-spacing: 1px;
+  color: #e8ecf1;
+}
+.car-option-stats {
+  display: flex; gap: 10px;
+  font-size: 10px; letter-spacing: 1px; color: #6b7c8c;
+}
+.car-option.selected {
+  border-color: #00e5ff;
+  background: rgba(0,229,255,0.1);
+  box-shadow: 0 0 20px rgba(0,229,255,0.25);
+}
+.car-option.selected .car-option-name { color: #00e5ff; }
+
 /* ── Countdown ────────────────────────────────────────────────────────────── */
 
 #countdown {
@@ -271,6 +302,8 @@ body.mobile-device #touchControls { display: block; }
   #overlay h1 { font-size: clamp(30px, 8vw, 42px); }
   #overlay .rules { max-width: 92vw; font-size: 12px; line-height: 1.55; }
   #startBtn { width: min(92vw, 360px); padding: 16px 24px; }
+  .car-select { max-width: 92vw; }
+  .car-option { min-width: 92px; padding: 8px 12px; }
 
   #touchControls { display: block; pointer-events: none; }
 

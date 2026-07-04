@@ -128,9 +128,10 @@ export function createCarMesh(carDef, bodyColor, accentColor, carNumber) {
  * @param {THREE.Vector3[]} sampleTangents
  * @param {number[]}    BOOST_PAD_IDX
  * @param {number}      [aiIndex]   If provided, offsets spawn position for AI grid
+ * @param {import('../content/cars/_template/stats.js').CarStats} [stats] Player's car physics params (unused for AI)
  * @returns {object}
  */
-export function makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_IDX, aiIndex) {
+export function makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_IDX, aiIndex, stats) {
   const isAI = aiIndex !== undefined;
   let spawnIdx = 0;
   if (isAI) {
@@ -141,6 +142,7 @@ export function makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_I
   const state = {
     mesh,
     color,
+    stats:        stats || null, // per-car physics params (player only; AI uses its own speed model)
     pos:          samplePts[spawnIdx].clone(),
     heading:      Math.atan2(sampleTangents[spawnIdx].x, sampleTangents[spawnIdx].z),
     speed:        0,

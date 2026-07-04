@@ -22,7 +22,7 @@ import { initAudio, updateAudio }               from './core/audio.js';
 import { startLoop }                            from './core/loop.js';
 
 import { loadTrack }   from './content/tracks/index.js';
-import { loadCar }     from './content/cars/index.js';
+import { loadCar, getCarIds } from './content/cars/index.js';
 
 import { buildTrackMesh }  from './entities/track-builder.js';
 import { createCarMesh }   from './entities/car.js';
@@ -37,6 +37,7 @@ import { initActionBtns }  from './ui/controls/action-buttons.js';
 import { initHUD, updateHUD, resetHUDTimer }     from './ui/hud.js';
 import { initMinimap, drawMinimap } from './ui/minimap.js';
 import { initOverlay }             from './ui/overlay.js';
+import { initCarSelect }           from './ui/car-select.js';
 
 import { initRaceState, stepRace, checkFinish, getRaceState, resetRaceState } from './race/race-state.js';
 import { initCountdown }  from './race/countdown.js';
@@ -65,69 +66,89 @@ if (window.visualViewport) {
   const { samplePts, sampleTangents, curvature, SAMPLES, ROAD_W, BOOST_PAD_IDX } =
     buildTrackMesh(scene, trackDef);
 
-  // Cars
-  const playerCarDef = await loadCar('phoenix-gt');
-  const playerMesh   = createCarMesh(playerCarDef, 0x00e5ff, 0x0a2530, 1);
-  scene.add(playerMesh);
-  const player = makeCarState(playerMesh, 0x00e5ff, samplePts, sampleTangents, BOOST_PAD_IDX);
+  // Load every registered car up front so the picker has names/stats ready.
+  // Adding a new car is purely a content/cars/ change — nothing here needs
+  // to know how many cars exist.
+  const carDefs = await Promise.all(getCarIds().map(loadCar));
 
-  const aiColors  = [0xff2e9a, 0xffb020, 0x8aff4d];
-  const aiCarDef  = await loadCar('phoenix-gt');
-  const aiCars    = aiColors.map((color, idx) => {
-    const mesh = createCarMesh(aiCarDef, color, 0x1a1a1a, idx + 2);
-    scene.add(mesh);
-    const st = makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_IDX, idx);
-    return st;
+  let selectedCarDef = carDefs[0];
+  initCarSelect({
+    cars: carDefs,
+    onSelect: (car) => { selectedCarDef = car; },
   });
-  const allCars = [player, ...aiCars];
 
-  // Particles
-  initParticles(scene);
+  // Player/AI/HUD/loop are built once, the first time the player hits Start —
+  // by then `selectedCarDef` reflects whatever they actually picked.
+  let gameBuilt = false;
+  let player, aiCars, allCars, input;
 
-  // Input
-  const input = { left:false, right:false, gas:false, brake:false, drift:false, boost:false, steer:0, steerActive:false };
-  initKeyboard(input);
-  if (isMobileDevice) {
-    initJoystick(input);
-    initActionBtns(input);
-  }
-
-  // HUD + Minimap
-  initHUD();
-  initMinimap(samplePts);
-
-  // Race
-  initRaceState(allCars, player, samplePts, sampleTangents, SAMPLES, BOOST_PAD_IDX);
-
-  // Overlay / start button
   initOverlay({
     onStart: async () => {
+      if (!gameBuilt) {
+        gameBuilt = true;
+        document.getElementById('carSelect')?.classList.add('hidden');
+
+        // Player — uses whichever car was selected in the garage screen.
+        const playerMesh = createCarMesh(selectedCarDef, 0x00e5ff, 0x0a2530, 1);
+        scene.add(playerMesh);
+        player = makeCarState(playerMesh, 0x00e5ff, samplePts, sampleTangents, BOOST_PAD_IDX, undefined, selectedCarDef.stats);
+
+        // AI — always drives the first registered car for now. Easy future
+        // upgrade: pick a random carDefs[i] per AI racer the same way.
+        const aiColors = [0xff2e9a, 0xffb020, 0x8aff4d];
+        const aiCarDef = carDefs[0];
+        aiCars = aiColors.map((color, idx) => {
+          const mesh = createCarMesh(aiCarDef, color, 0x1a1a1a, idx + 2);
+          scene.add(mesh);
+          return makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_IDX, idx, aiCarDef.stats);
+        });
+        allCars = [player, ...aiCars];
+
+        // Particles
+        initParticles(scene);
+
+        // Input
+        input = { left:false, right:false, gas:false, brake:false, drift:false, boost:false, steer:0, steerActive:false };
+        initKeyboard(input);
+        if (isMobileDevice) {
+          initJoystick(input);
+          initActionBtns(input);
+        }
+
+        // HUD + Minimap
+        initHUD();
+        initMinimap(samplePts);
+
+        // Race
+        initRaceState(allCars, player, samplePts, sampleTangents, SAMPLES, BOOST_PAD_IDX);
+
+        // ─── Main loop (started once, first Start click only) ──────────────────
+
+        startLoop((dt) => {
+          const { raceStarted, raceOver } = getRaceState();
+
+          if (raceStarted && !raceOver) {
+            stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, ROAD_W, BOOST_PAD_IDX, dt);
+            aiCars.forEach(c => stepAI(c, allCars, samplePts, sampleTangents, curvature, SAMPLES, dt));
+            resolveCarCollisions(allCars, player);
+            checkBoostPads(allCars, samplePts, SAMPLES, BOOST_PAD_IDX);
+            checkFinish(player);
+            updateHUD(player, allCars, dt);
+            drawMinimap(allCars, player);
+          }
+
+          updateParticles(dt);
+          updateCamera(camera, player, dt);
+          updateAudio(player, raceStarted, raceOver, input);
+
+          renderer.render(scene, camera);
+        });
+      }
+
       if (!window._audioReady) { initAudio(); window._audioReady = true; }
       resetRaceState();
       resetHUDTimer();
       initCountdown(() => stepRace(true));
     },
-  });
-
-  // ─── Main loop ────────────────────────────────────────────────────────────────
-
-  startLoop((dt) => {
-    const { raceStarted, raceOver } = getRaceState();
-
-    if (raceStarted && !raceOver) {
-      stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, ROAD_W, BOOST_PAD_IDX, dt);
-      aiCars.forEach(c => stepAI(c, allCars, samplePts, sampleTangents, curvature, SAMPLES, dt));
-      resolveCarCollisions(allCars, player);
-      checkBoostPads(allCars, samplePts, SAMPLES, BOOST_PAD_IDX);
-      checkFinish(player);
-      updateHUD(player, allCars, dt);
-      drawMinimap(allCars, player);
-    }
-
-    updateParticles(dt);
-    updateCamera(camera, player, dt);
-    updateAudio(player, raceStarted, raceOver, input);
-
-    renderer.render(scene, camera);
   });
 })();

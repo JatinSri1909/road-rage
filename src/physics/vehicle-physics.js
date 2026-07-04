@@ -11,8 +11,10 @@ import { triggerShake } from '../core/camera.js';
 import { spawnParticle } from '../effects/particles.js';
 import { updateLapProgress } from '../race/race-state.js';
 
-// ── Physics constants (sourced from content/cars/phoenix-gt/stats.js at runtime)
-// These are re-exported so audio.js can normalise speed without importing stats.
+// ── Physics defaults (used as a fallback if a car has no stats attached) ──────
+// Real values now come from each car's own stats.js (see content/cars/*/stats.js),
+// read from `player.stats` at the top of stepPlayer(). These constants stay as
+// the safety fallback and are what audio.js uses for its speed normalisation.
 export const CAR_MAX_SPEED    = 42;
 export const CAR_MAX_REVERSE  = 12;
 export const CAR_ACCEL        = 22;
@@ -23,8 +25,26 @@ export const CAR_MAX_TURN     = 2.5;
 export const GRIP_NORMAL      = 9.0;
 export const GRIP_DRIFT       = 1.7;
 
-// TODO: in a future refactor, read these from car.stats instead of hard-coding.
-// For now they match phoenix-gt/stats.js exactly.
+export const DEFAULT_STATS = {
+  maxSpeed:     CAR_MAX_SPEED,
+  maxReverse:   CAR_MAX_REVERSE,
+  accel:        CAR_ACCEL,
+  reverseAccel: CAR_REVERSE_ACCEL,
+  brake:        CAR_BRAKE,
+  drag:         CAR_DRAG,
+  maxTurn:      CAR_MAX_TURN,
+  gripNormal:   GRIP_NORMAL,
+  gripDrift:    GRIP_DRIFT,
+};
+
+// Nitro boost multipliers — applied on top of whichever car's own stats are active.
+export const BOOST_SPEED_MULTIPLIER = 1.28;
+export const BOOST_ACCEL_MULTIPLIER = 1.7;
+
+/** Real top speed in km/h for a given car's stats, including nitro boost. */
+export function getTopSpeedKmh(stats) {
+  return (stats || DEFAULT_STATS).maxSpeed * BOOST_SPEED_MULTIPLIER * 3.6;
+}
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -43,6 +63,7 @@ const UP = new THREE.Vector3(0, 1, 0);
  */
 export function stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, ROAD_W, BOOST_PAD_IDX, dt) {
   const c = player;
+  const s = c.stats || DEFAULT_STATS; // per-car physics parameters
   const forwardDir = new THREE.Vector3(Math.sin(c.heading), 0, Math.cos(c.heading));
   const rightDir   = new THREE.Vector3(Math.cos(c.heading), 0, -Math.sin(c.heading));
 
@@ -58,21 +79,21 @@ export function stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, RO
 
   // Longitudinal acceleration
   let accel = 0;
-  if (input.gas)   accel += CAR_ACCEL * (boosting ? 1.7 : 1);
-  if (input.brake) accel += (vF > 1 ? -CAR_BRAKE : -CAR_REVERSE_ACCEL);
+  if (input.gas)   accel += s.accel * (boosting ? BOOST_ACCEL_MULTIPLIER : 1);
+  if (input.brake) accel += (vF > 1 ? -s.brake : -s.reverseAccel);
   vF += accel * dt;
-  vF -= Math.sign(vF) * (CAR_DRAG * 0.5 + Math.abs(vF) * 0.03) * dt;
+  vF -= Math.sign(vF) * (s.drag * 0.5 + Math.abs(vF) * 0.03) * dt;
   if (Math.abs(vF) < 0.05) vF = 0;
-  vF = THREE.MathUtils.clamp(vF, -CAR_MAX_REVERSE, CAR_MAX_SPEED * (boosting ? 1.28 : 1));
+  vF = THREE.MathUtils.clamp(vF, -s.maxReverse, s.maxSpeed * (boosting ? BOOST_SPEED_MULTIPLIER : 1));
 
   // Lateral grip
-  const grip = input.drift ? GRIP_DRIFT : GRIP_NORMAL;
+  const grip = input.drift ? s.gripDrift : s.gripNormal;
   vR -= vR * Math.min(1, grip * dt);
 
   // Steering
   const speedFactor = THREE.MathUtils.clamp(Math.abs(vF) / 7, 0, 1);
   const turnDir     = vF >= 0 ? 1 : -1;
-  const turnRate    = CAR_MAX_TURN * speedFactor * (input.drift ? 1.3 : 1);
+  const turnRate    = s.maxTurn * speedFactor * (input.drift ? 1.3 : 1);
   c.heading += steerInput * turnRate * dt * turnDir;
 
   // Integrate position
