@@ -11,18 +11,47 @@
 <body>
 
   <div id="overlay">
-    <h1>ROAD RAGE</h1>
-    <div class="sub">A SUNSET GRID RACER</div>
-    <div class="rules">
-      3 laps · 3 rivals · corner-aware AI that fights back.<br>
-      <b>Joystick</b> to steer and throttle.<br>
-      <b>Hold DRIFT</b> to slide through corners.<br>
-      <b>NOS</b> burns your nitro meter for a speed burst.<br>
-      Desktop: Arrows/WASD, Shift = drift, Space = nitro.
+    <!-- Landing Screen -->
+    <div id="landingScreen">
+      <h1>ROAD RAGE</h1>
+      <div class="sub">A SUNSET GRID RACER</div>
+      <div class="rules">
+        3 laps · 3 rivals · corner-aware AI that fights back.<br>
+        <b>Joystick</b> to steer and throttle.<br>
+        <b>Hold DRIFT</b> to slide through corners.<br>
+        <b>NOS</b> burns your nitro meter for a speed burst.<br>
+        Desktop: Arrows/WASD, Shift = drift, Space = nitro.
+      </div>
+      <button id="startBtn">TAP TO START ENGINE</button>
     </div>
-    <div id="carSelect" class="car-select"></div>
-    <button id="startBtn">TAP TO START ENGINE</button>
+
+    <!-- Setup / Selection Screen -->
+    <div id="setupScreen" class="hidden">
+      <h1>RACE SETUP</h1>
+      <div class="setup-container">
+        <div class="setup-section">
+          <div class="setup-label">SELECT CIRCUIT</div>
+          <div id="trackSelect" class="track-select"></div>
+        </div>
+        <div class="setup-section">
+          <div class="setup-label">SELECT VEHICLE</div>
+          <div id="carSelect" class="car-select"></div>
+        </div>
+        <div class="setup-section">
+          <div class="setup-label">SELECT PAINT JOB</div>
+          <div id="colorSelect" class="color-select"></div>
+        </div>
+      </div>
+      <button id="raceBtn">START RACE</button>
+    </div>
+
     <div id="finishStats"></div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="hidden">
+      <div class="loader-spinner"></div>
+      <div id="loadingText" class="loading-text">LOADING ASSETS...</div>
+    </div>
   </div>
 
   <div id="countdown">3</div>

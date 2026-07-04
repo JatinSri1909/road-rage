@@ -17,6 +17,7 @@ import { buildScenery } from './scenery.js';
 
 /** @type {TrackDefinition} */
 const sunsetGrid = {
+  name: 'Sunset Grid',
   controlPoints: [
     new THREE.Vector3(0,   0,   0),
     new THREE.Vector3(55,  0, -15),

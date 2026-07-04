@@ -96,8 +96,8 @@ export function initJoystick(input) {
     input.left  = normX < -0.15;
     input.right = normX >  0.15;
 
-    // Gas / brake
-    input.gas   = normY < -0.15;
-    input.brake = normY >  0.15;
+    // Gas / brake: auto-accelerate when touching the joystick unless pulling down to brake
+    input.gas   = normY < 0.25;
+    input.brake = normY >= 0.25;
   }
 }

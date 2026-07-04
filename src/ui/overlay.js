@@ -12,17 +12,22 @@
 
 const _isMobile = window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0;
 
+let _onStartEngine = null;
 let _onStart = null;
 let _pendingMobileStart = false;
 
 /**
- * @param {{ onStart: () => Promise<void> }} options
+ * @param {{ onStartEngine?: () => Promise<void>, onStart: () => Promise<void> }} options
  */
-export function initOverlay({ onStart }) {
+export function initOverlay({ onStartEngine, onStart }) {
+  _onStartEngine = onStartEngine;
   _onStart = onStart;
 
   const startBtn = document.getElementById('startBtn');
   startBtn?.addEventListener('click', _handleStart, { passive: true });
+
+  const raceBtn = document.getElementById('raceBtn');
+  raceBtn?.addEventListener('click', _handleRace, { passive: true });
 
   window.addEventListener('orientationchange', _handleOrientationChange);
 
@@ -32,6 +37,27 @@ export function initOverlay({ onStart }) {
 
   // Quit to menu if device rotates to portrait during a race
   window.addEventListener('resize', _handleResizeQuit);
+}
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+export function showLoading(text) {
+  const loadingScreen = document.getElementById('loadingScreen');
+  const loadingText = document.getElementById('loadingText');
+  if (loadingScreen) loadingScreen.classList.remove('hidden');
+  if (loadingText && text) loadingText.textContent = text;
+}
+
+export function hideLoading() {
+  const loadingScreen = document.getElementById('loadingScreen');
+  if (loadingScreen) loadingScreen.classList.add('hidden');
+}
+
+export function showSetupScreen() {
+  document.getElementById('landingScreen')?.classList.add('hidden');
+  document.getElementById('setupScreen')?.classList.remove('hidden');
+  const finishStats = document.getElementById('finishStats');
+  if (finishStats) finishStats.innerHTML = '';
 }
 
 // ─── Private handlers ─────────────────────────────────────────────────────────
@@ -48,16 +74,30 @@ async function _handleStart() {
     }
   }
   _pendingMobileStart = false;
+
+  if (_onStartEngine) {
+    await _onStartEngine();
+  } else {
+    showSetupScreen();
+  }
+}
+
+async function _handleRace() {
+  if (_onStart) {
+    await _onStart();
+  }
   document.getElementById('overlay')?.classList.add('hidden');
-  _onStart?.();
 }
 
 function _handleOrientationChange() {
   if (!_pendingMobileStart) return;
   if (_isLandscape()) {
     _pendingMobileStart = false;
-    document.getElementById('overlay')?.classList.add('hidden');
-    setTimeout(() => _onStart?.(), 150);
+    if (_onStartEngine) {
+      _onStartEngine();
+    } else {
+      showSetupScreen();
+    }
   }
 }
 
@@ -80,6 +120,11 @@ function _forceQuitToMenu() {
   const overlay  = document.getElementById('overlay');
   const hud      = document.getElementById('hud');
   const startBtn = document.getElementById('startBtn');
+
+  // Reset to landing screen menu state
+  document.getElementById('landingScreen')?.classList.remove('hidden');
+  document.getElementById('setupScreen')?.classList.add('hidden');
+
   overlay?.classList.remove('hidden');
   hud?.classList.add('hidden');
   if (startBtn) startBtn.textContent = 'START RACE';
