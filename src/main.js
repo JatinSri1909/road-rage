@@ -47,7 +47,7 @@ import { initRaceState, stepRace, tickRace, getRaceState, resetRaceState } from 
 import { initCountdown }  from './race/countdown.js';
 import { stepPlayer }     from './physics/vehicle-physics.js';
 import { stepAI }         from './race/ai-driver.js';
-import { resolveCarCollisions, checkBoostPads } from './physics/collision.js';
+import { resolveCarCollisions, checkBoostPads, resolveStaticCollisions } from './physics/collision.js';
 import { updateCamera }   from './core/camera.js';
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
@@ -69,6 +69,7 @@ if (window.visualViewport) {
   // Outer closure variables updated on every race start
   let samplePts = [], sampleTangents = [], curvature = new Float32Array(0);
   let SAMPLES = 0, ROAD_W = 0, BOOST_PAD_IDX = [];
+  let staticColliders = [];
   let trackGroup = new THREE.Group();
   scene.add(trackGroup);
 
@@ -102,6 +103,7 @@ if (window.visualViewport) {
     SAMPLES = buildResult.SAMPLES;
     ROAD_W = buildResult.ROAD_W;
     BOOST_PAD_IDX = buildResult.BOOST_PAD_IDX;
+    staticColliders = buildResult.staticColliders;
 
     // 2. Clear old vehicle meshes from scene
     if (playerMesh) scene.remove(playerMesh);
@@ -215,6 +217,7 @@ if (window.visualViewport) {
             stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, ROAD_W, BOOST_PAD_IDX, dt);
             aiCars.forEach(c => stepAI(c, allCars, samplePts, sampleTangents, curvature, SAMPLES, dt));
             resolveCarCollisions(allCars, player);
+            allCars.forEach(c => resolveStaticCollisions(c, staticColliders, c === player));
             checkBoostPads(allCars, samplePts, SAMPLES, BOOST_PAD_IDX);
             tickRace(dt);
             updateHUD(player, allCars, dt);

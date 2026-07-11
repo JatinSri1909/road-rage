@@ -3,14 +3,45 @@ import { triggerShake } from '../core/camera.js';
 import { spawnParticle } from '../effects/particles.js';
 
 const CAR_COLLISION_RADIUS = 1.55;
+const RESTITUTION = 0.35; // 0 = cars just stop dead on impact, 1 = perfectly bouncy
+const STATIC_HIT_RADIUS_PAD = 1.0; // ≈ car half-width, added to each collider's own radius
 
 // Reusable scratch vectors to avoid per-frame GC pressure
 const _mid          = new THREE.Vector3();
 const _sparkVel     = new THREE.Vector3();
-const _impulse      = new THREE.Vector3();
-const _dir          = new THREE.Vector3();
+const _aVel         = new THREE.Vector3();
+const _bVel         = new THREE.Vector3();
 const _particlePos  = new THREE.Vector3();
 const _particleVel  = new THREE.Vector3();
+const _dir          = new THREE.Vector3();
+
+export function resolveStaticCollisions(car, colliders, isPlayer) {
+  for (let i = 0; i < colliders.length; i++) {
+    const col = colliders[i];
+    const dx = car.pos.x - col.x, dz = car.pos.z - col.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    const minDist = col.radius + STATIC_HIT_RADIUS_PAD;
+
+    if (dist <= 0.0001 || dist >= minDist) continue;
+
+    const nx = dx / dist, nz = dz / dist;
+    const overlap = minDist - dist;
+
+    // Static prop = infinite mass — only the car moves, and it moves out fully.
+    car.pos.x += nx * overlap;
+    car.pos.z += nz * overlap;
+    car.mesh.position.set(car.pos.x, 0, car.pos.z);
+
+    // Cancel only the velocity component driving the car INTO the prop —
+    // same trick as the guardrail fix, so cars scrape past at reduced speed
+    // instead of stopping dead or getting stuck needing a reverse.
+    const vel = getVelocityVector(car, _aVel);
+    const inward = -(vel.x * nx + vel.z * nz);
+    if (inward > 0) applyImpulse(car, nx * inward, nz * inward);
+
+    if (isPlayer && inward > 9) triggerShake(0.22, Math.min(0.3, inward * 0.012));
+  }
+}
 
 export function resolveCarCollisions(allCars, player) {
   for (let i = 0; i < allCars.length; i++) {
@@ -25,18 +56,28 @@ export function resolveCarCollisions(allCars, player) {
       const nx = dx / dist, nz = dz / dist;
       const overlap = minDist - dist;
 
+      // Positional correction: cars are solid and may never overlap.
       a.pos.x -= nx * overlap * 0.5; a.pos.z -= nz * overlap * 0.5;
       b.pos.x += nx * overlap * 0.5; b.pos.z += nz * overlap * 0.5;
       a.mesh.position.set(a.pos.x, 0, a.pos.z);
       b.mesh.position.set(b.pos.x, 0, b.pos.z);
 
-      const aSpd   = a.velocity ? a.velocity.length() : Math.abs(a.speed);
-      const bSpd   = b.velocity ? b.velocity.length() : Math.abs(b.speed);
-      const impact = THREE.MathUtils.clamp((aSpd + bSpd) / 30, 0, 1);
+      // Real velocity vectors (AI cars track scalar speed + heading instead).
+      const aVel = getVelocityVector(a, _aVel);
+      const bVel = getVelocityVector(b, _bVel);
 
-      applyCollisionImpulse(a, -nx, -nz, impact);
-      applyCollisionImpulse(b,  nx,  nz, impact);
+      // Closing speed along the collision normal — this is the only
+      // component a rigid-body impact actually cancels/bounces. The
+      // tangential (sliding-past) component is left untouched, so a
+      // glancing side-swipe barely affects forward speed.
+      const relNormalSpeed = (bVel.x - aVel.x) * nx + (bVel.z - aVel.z) * nz;
+      if (relNormalSpeed > 0) continue; // already separating, no impulse needed
 
+      const impulseMag = -(1 + RESTITUTION) * relNormalSpeed / 2; // equal-mass, 2-body
+      applyImpulse(a, -nx * impulseMag, -nz * impulseMag);
+      applyImpulse(b,  nx * impulseMag,  nz * impulseMag);
+
+      const impact = THREE.MathUtils.clamp(-relNormalSpeed / 22, 0, 1);
       if ((a === player || b === player) && impact > 0.2) {
         triggerShake(0.22, Math.min(0.3, impact * 0.4));
         const mid = _mid.set((a.pos.x + b.pos.x) / 2, 0.6, (a.pos.z + b.pos.z) / 2);
@@ -49,12 +90,19 @@ export function resolveCarCollisions(allCars, player) {
   }
 }
 
-function applyCollisionImpulse(car, nx, nz, impact) {
+function getVelocityVector(car, out) {
+  if (car.velocity) return out.copy(car.velocity);
+  return out.set(Math.sin(car.heading) * car.speed, 0, Math.cos(car.heading) * car.speed);
+}
+
+function applyImpulse(car, ix, iz) {
   if (car.velocity) {
-    car.velocity.multiplyScalar(1 - 0.45 * impact);
-    car.velocity.add(_impulse.set(nx * 2 * impact, 0, nz * 2 * impact));
+    car.velocity.x += ix;
+    car.velocity.z += iz;
   } else {
-    car.speed *= (1 - 0.45 * impact);
+    // Scalar-speed AI cars: project the impulse onto their own heading so
+    // they realistically slow/speed up on impact without gaining sideways drift.
+    car.speed = Math.max(0, car.speed + ix * Math.sin(car.heading) + iz * Math.cos(car.heading));
   }
 }
 

@@ -19,6 +19,11 @@ export function initJoystick(input) {
   let activeTouchId = null;
   let dragStart     = { x: 0, y: 0 };
   let maxRadius     = 50;
+  let smoothedSteer = 0; // low-pass filtered steering value, prevents snappy jitter
+
+  const STEER_DEADZONE = 0.08;  // ignore tiny accidental finger drift
+  const STEER_CURVE    = 1.8;   // >1 = softer near centre, still hits full lock at edge
+  const STEER_SMOOTH   = 0.28;  // lower = heavier/steadier, higher = snappier
 
   joyContainer.addEventListener('touchstart', e => {
     // Ignore if a joystick touch is already tracked (e.g. a stray second
@@ -53,6 +58,7 @@ export function initJoystick(input) {
   const reset = () => {
     joyActive     = false;
     activeTouchId = null;
+    smoothedSteer = 0;
     joyKnob.style.transform = 'translate(0px, 0px)';
     input.steer       = 0;
     input.steerActive = false;
@@ -88,9 +94,17 @@ export function initJoystick(input) {
     const normX = dx / maxRadius;
     const normY = dy / maxRadius;
 
-    // Steering (continuous axis for smooth control)
-    input.steer       = -normX;
-    input.steerActive = Math.abs(normX) > 0.05;
+    // Steering: curved response so small, imprecise movements near centre
+    // produce proportionally smaller input — full lock still reachable at edge.
+    const mag    = Math.abs(normX) < STEER_DEADZONE ? 0 : Math.abs(normX);
+    const curved = Math.pow(mag, STEER_CURVE) * Math.sign(normX);
+
+    // Low-pass filter: steering ramps toward the target instead of snapping,
+    // so the car is easier to hold steady mid-turn.
+    smoothedSteer += (curved - smoothedSteer) * STEER_SMOOTH;
+
+    input.steer       = -smoothedSteer;
+    input.steerActive = Math.abs(normX) > STEER_DEADZONE;
 
     // Boolean fallbacks (used by physics when steerActive is false)
     input.left  = normX < -0.15;

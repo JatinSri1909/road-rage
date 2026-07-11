@@ -146,21 +146,30 @@ export function resetRaceState() {
   _raceStarted = false;
 
   const player = _player;
+  const UP = new THREE.Vector3(0, 1, 0);
   if (player) {
-    player.pos.copy(_samplePts[0]);
-    player.lastSampleIdx = 0;
-    player.maxSampleIdx = 0;
-    player.trackIdx = 0;
-    player.progress = 0;
-    player.heading = Math.atan2(_sampleTangents[0].x, _sampleTangents[0].z);
+    const gridIndex = 2; // Player is Slot 3 (index 2)
+    const spawnIdx = (_SAMPLES - 6 - gridIndex * 6 + _SAMPLES) % _SAMPLES;
+    const side = (gridIndex % 2 === 0) ? 1 : -1;
+    const laneOffset = side * 2.5;
+
+    const p = _samplePts[spawnIdx], t = _sampleTangents[spawnIdx];
+    const right = new THREE.Vector3().crossVectors(t, UP).normalize();
+    player.pos.copy(p).addScaledVector(right, laneOffset);
+
+    player.lastSampleIdx = spawnIdx;
+    player.maxSampleIdx = spawnIdx;
+    player.trackIdx = spawnIdx;
+    player.progress = (0 - 1) * _SAMPLES + spawnIdx;
+    player.heading = Math.atan2(t.x, t.z);
     if (player.velocity) player.velocity.set(0, 0, 0);
     player.speed = 0;
-    player.lap = 1;
+    player.lap = 0;
     player.finished = false;
     player.finishTime = 0;
     player.nitro = 100;
     player.boosting = false;
-    player.crossedHalfway = false;
+    player.crossedHalfway = true;
     player.padFlags.fill(false);
 
     player.mesh.position.set(player.pos.x, 0, player.pos.z);
@@ -169,14 +178,23 @@ export function resetRaceState() {
 
   const aiCars = _allCars.slice(1);
   aiCars.forEach((st, idx) => {
-    const back = (idx + 1) * 4;
-    const spawnIdx = (_samplePts.length - back * 2 + _samplePts.length) % _samplePts.length;
-    st.pos.copy(_samplePts[spawnIdx]);
+    // AI 0 -> Slot 1 (gridIndex 0)
+    // AI 1 -> Slot 2 (gridIndex 1)
+    // AI 2 -> Slot 4 (gridIndex 3)
+    const gridIndex = idx < 2 ? idx : 3;
+    const spawnIdx = (_SAMPLES - 6 - gridIndex * 6 + _SAMPLES) % _SAMPLES;
+    const side = (gridIndex % 2 === 0) ? 1 : -1;
+    const laneOffset = side * 2.5;
+
+    const p = _samplePts[spawnIdx], t = _sampleTangents[spawnIdx];
+    const right = new THREE.Vector3().crossVectors(t, UP).normalize();
+    st.pos.copy(p).addScaledVector(right, laneOffset);
+
     st.lastSampleIdx = spawnIdx;
     st.maxSampleIdx = spawnIdx;
     st.trackIdx = spawnIdx;
-    st.progress = 0;
-    st.heading = Math.atan2(_sampleTangents[spawnIdx].x, _sampleTangents[spawnIdx].z);
+    st.progress = (0 - 1) * _SAMPLES + spawnIdx;
+    st.heading = Math.atan2(t.x, t.z);
     st.speed = 0;
     st.lap = 0;
     st.finished = false;
@@ -184,8 +202,8 @@ export function resetRaceState() {
     st.nitro = 100;
     st.boosting = false;
     st.crossedHalfway = true;
-    st.laneOffset = (idx - 1) * 3.0;
-    st.laneOffsetTarget = st.laneOffset;
+    st.laneOffset = laneOffset;
+    st.laneOffsetTarget = laneOffset;
     st.laneTimer = Math.random() * 2;
     st.padFlags.fill(false);
 

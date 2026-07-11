@@ -112,22 +112,47 @@ export function stepPlayer(player, input, samplePts, sampleTangents, SAMPLES, RO
   c.velocity.copy(forwardDir).multiplyScalar(vF).addScaledVector(rightDir, vR);
   c.pos.addScaledVector(c.velocity, dt);
 
-  // Clamp to track bounds
+  // Track bounds: the curb is drivable-over (slows the car like rough
+  // ground) — only the guardrail beyond it is a solid, impassable wall.
   const { idx } = nearestSampleIdx(c.pos, c.lastSampleIdx, samplePts, SAMPLES);
   const centerP  = samplePts[idx];
   const tang     = sampleTangents[idx];
   const rightV   = _rightV.crossVectors(tang, UP).normalize();
   const rel      = _rel.set(c.pos.x - centerP.x, 0, c.pos.z - centerP.z);
   const lateral  = rel.dot(rightV);
-  const maxLat   = ROAD_W / 2 - 1.1;
-  if (lateral > maxLat || lateral < -maxLat) {
-    const clamped = THREE.MathUtils.clamp(lateral, -maxLat, maxLat);
-    c.pos.x = centerP.x + rightV.x * clamped;
-    c.pos.z = centerP.z + rightV.z * clamped;
-    const hitSpeed = c.velocity.length();
-    c.velocity.multiplyScalar(0.32);
-    if (hitSpeed > 9) triggerShake(0.28, Math.min(0.35, hitSpeed * 0.012));
-  }
+  const absLat   = Math.abs(lateral);
+
+  const CAR_HALF_WIDTH = 1.0; // approx. half the car's physical footprint
+
+const roadHalf     = ROAD_W / 2;
+const curbOuter     = roadHalf + 0.9;               // matches buildCurbRibbon's outer edge
+const guardrailLat  = roadHalf + 1.2;               // must match track-builder.js's guardrail dist
+const wallLat       = guardrailLat - CAR_HALF_WIDTH; // stop the car's BODY before the rail, not its centre
+
+if (absLat > roadHalf) {
+  const offRoadT = THREE.MathUtils.clamp((absLat - roadHalf) / (curbOuter - roadHalf), 0, 1);
+  c.velocity.multiplyScalar(1 - offRoadT * 0.6 * Math.min(1, dt * 6));
+}
+
+if (absLat > wallLat) {
+  // Hard boundary — clamps the car's centre so its body can never reach the
+  // guardrail mesh, avoiding any visual intersection.
+  const clamped = THREE.MathUtils.clamp(lateral, -wallLat, wallLat);
+  c.pos.x = centerP.x + rightV.x * clamped;
+  c.pos.z = centerP.z + rightV.z * clamped;
+
+  // Only cancel the velocity component pushing further INTO the wall —
+  // forward/tangential speed is untouched. This is what actually fixes the
+  // "stuck, have to reverse" feeling: the old code multiplied the WHOLE
+  // velocity by 0.55 every single frame in contact, which compounds to
+  // near-zero in a few frames. This only kills the outward component once
+  // per frame, so the car can still drive along the rail at speed.
+  const outward = c.velocity.dot(rightV) * Math.sign(lateral);
+  if (outward > 0) c.velocity.addScaledVector(rightV, -outward * Math.sign(lateral));
+
+  const hitSpeed = c.velocity.length();
+  if (hitSpeed > 9) triggerShake(0.28, Math.min(0.35, hitSpeed * 0.012));
+}
 
   // Update mesh transform
   c.speed = vF;

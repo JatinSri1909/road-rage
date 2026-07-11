@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { BufferGeometryUtils } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeGlowTexture } from '../effects/textures.js';
 
 const glowTex = makeGlowTexture();
@@ -88,14 +89,14 @@ export async function createCarMesh(carDef, bodyColor, accentColor, carNumber) {
   // Exhausts — quad pipes on the muscle car, dual pipes on the GT
   if (bodyStyle === 'muscle') {
     [-0.65, -0.28, 0.28, 0.65].forEach(x => {
-      const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.2, 10), chromeMat);
+      const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.2, 20), chromeMat);
       exhaust.rotation.z = Math.PI / 2;
       exhaust.position.set(x, 0.26, -1.9 * (shellScale.z / 2.05));
       group.add(exhaust);
     });
   } else {
     [-0.5, 0.5].forEach(x => {
-      const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.22, 10), chromeMat);
+      const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.22, 20), chromeMat);
       exhaust.rotation.z = Math.PI / 2;
       exhaust.position.set(x, 0.3, -1.9);
       group.add(exhaust);
@@ -112,7 +113,7 @@ export async function createCarMesh(carDef, bodyColor, accentColor, carNumber) {
   const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff4cc, emissive: 0xfff4cc, emissiveIntensity: 1.6 });
   const tailMat  = new THREE.MeshStandardMaterial({ color: 0xff1744, emissive: 0xff1744, emissiveIntensity: 1.4 });
   [-0.62, 0.62].forEach(x => {
-    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), lightMat);
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 16), lightMat);
     hl.position.set(x, 0.62, 2.0); group.add(hl);
     addGlowSprite(group, new THREE.Vector3(x, 0.62, 2.05), 0xfff4cc, 0.4);
     const tl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.12, 0.06), tailMat);
@@ -127,11 +128,24 @@ export async function createCarMesh(carDef, bodyColor, accentColor, carNumber) {
     bctx.fillStyle = '#ffffff'; bctx.beginPath(); bctx.arc(32, 32, 30, 0, Math.PI * 2); bctx.fill();
     bctx.fillStyle = '#0e0f12'; bctx.font = 'bold 40px Arial'; bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
     bctx.fillText(String(carNumber), 32, 34);
-    const badge = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(bc), transparent: true }));
+    const badge = new THREE.Mesh(new THREE.CircleGeometry(0.3, 32), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(bc), transparent: true }));
     badge.rotation.x = -Math.PI / 2 + 0.2;
     badge.position.set(0, 1.18, 1.0);
     group.add(badge);
   }
+
+  // Smooth the geometries of all curved meshes (wheels, canopy, body shell, etc.)
+  group.traverse(node => {
+    if (node.isMesh && node.geometry) {
+      const isBox = node.geometry.type.startsWith('BoxGeometry') || node.geometry.type.startsWith('BoxBufferGeometry');
+      if (!isBox) {
+        node.geometry = node.geometry.clone();
+        node.geometry.deleteAttribute('normal');
+        node.geometry = BufferGeometryUtils.mergeVertices(node.geometry);
+        node.geometry.computeVertexNormals();
+      }
+    }
+  });
 
   group.userData.wheels = wheels;
   return group;
@@ -152,28 +166,39 @@ export async function createCarMesh(carDef, bodyColor, accentColor, carNumber) {
  */
 export function makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_IDX, aiIndex, stats) {
   const isAI = aiIndex !== undefined;
-  let spawnIdx = 0;
-  if (isAI) {
-    const back = (aiIndex + 1) * 4;
-    spawnIdx = (samplePts.length - back * 2 + samplePts.length) % samplePts.length;
-  }
+  
+  // Staggered grid indices:
+  // AI 0 -> Slot 1 (gridIndex 0)
+  // AI 1 -> Slot 2 (gridIndex 1)
+  // Player -> Slot 3 (gridIndex 2)
+  // AI 2 -> Slot 4 (gridIndex 3)
+  const gridIndex = isAI ? (aiIndex < 2 ? aiIndex : 3) : 2;
+  const SAMPLES = samplePts.length;
+
+  const spawnIdx = (SAMPLES - 6 - gridIndex * 6 + SAMPLES) % SAMPLES;
+  const side = (gridIndex % 2 === 0) ? 1 : -1;
+  const initialLaneOffset = side * 2.5;
+
+  const p = samplePts[spawnIdx], t = sampleTangents[spawnIdx];
+  const right = new THREE.Vector3().crossVectors(t, new THREE.Vector3(0, 1, 0)).normalize();
+  const startPos = p.clone().addScaledVector(right, initialLaneOffset);
 
   const state = {
     mesh,
     color,
     stats:        stats || null, // per-car physics params (player only; AI uses its own speed model)
-    pos:          samplePts[spawnIdx].clone(),
-    heading:      Math.atan2(sampleTangents[spawnIdx].x, sampleTangents[spawnIdx].z),
+    pos:          startPos,
+    heading:      Math.atan2(t.x, t.z),
     speed:        0,
-    lap:          isAI ? 0 : 1,
+    lap:          0, // Everyone starts behind the start line, so lap starts at 0
     lastSampleIdx:  spawnIdx,
     maxSampleIdx:   spawnIdx,
     trackIdx:       spawnIdx,
-    progress:       0,
+    progress:       (0 - 1) * SAMPLES + spawnIdx, // Initial progress is negative because they are behind start line
     finished:       false,
     finishTime:     0,
     padFlags:       new Array(BOOST_PAD_IDX.length).fill(false),
-    crossedHalfway: isAI,  // AI spawns past start line so treat as already crossed
+    crossedHalfway: true, // Everyone starts behind the start line, so crossedHalfway is true
     nitro:          100,
     boosting:       false,
   };
@@ -186,8 +211,8 @@ export function makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_I
   // AI-only: lane weaving state
   if (isAI) {
     state.baseSpeed         = 35 + aiIndex * 3.2 + Math.random() * 5;
-    state.laneOffset        = (aiIndex - 1) * 3.0;
-    state.laneOffsetTarget  = state.laneOffset;
+    state.laneOffset        = initialLaneOffset;
+    state.laneOffsetTarget  = initialLaneOffset;
     state.laneTimer         = Math.random() * 2;
   }
 
@@ -206,7 +231,7 @@ export function makeCarState(mesh, color, samplePts, sampleTangents, BOOST_PAD_I
  */
 function buildGTBody(group, shellScale, canopyScale, bodyMat, canopyMat, darkMat, stripeMat) {
   // Body shell
-  const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), bodyMat);
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 36), bodyMat);
   shell.scale.set(shellScale.x, shellScale.y, shellScale.z);
   shell.position.y = 0.62;
   shell.castShadow = true;
@@ -226,7 +251,7 @@ function buildGTBody(group, shellScale, canopyScale, bodyMat, canopyMat, darkMat
   const skirt = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.16, 3.7), darkMat);
   skirt.position.y = 0.24;
   group.add(skirt);
-  const canopy = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), canopyMat);
+  const canopy = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 30), canopyMat);
   canopy.scale.set(canopyScale.x, canopyScale.y, canopyScale.z);
   canopy.position.set(0, 1.06, -0.1);
   canopy.castShadow = true;
@@ -239,7 +264,7 @@ function buildGTBody(group, shellScale, canopyScale, bodyMat, canopyMat, darkMat
 
   // Fenders
   [[-1.0,0.5,1.3],[1.0,0.5,1.3],[-1.0,0.5,-1.3],[1.0,0.5,-1.3]].forEach(([px,py,pz]) => {
-    const fender = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 8), bodyMat);
+    const fender = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 16), bodyMat);
     fender.scale.set(0.7, 0.7, 1.0);
     fender.position.set(px, py, pz);
     group.add(fender);
@@ -334,7 +359,26 @@ async function buildModelBody(carDef, bodyColor, accentColor, carNumber) {
   const root = gltf.scene.children[0].clone(true);
   root.traverse(node => {
     if (node.isMesh) {
-      node.material = node.material.clone();
+      if (node.material) {
+        if (Array.isArray(node.material)) {
+          node.material = node.material.map(m => {
+            const cloned = m.clone();
+            cloned.flatShading = false;
+            cloned.needsUpdate = true;
+            return cloned;
+          });
+        } else {
+          node.material = node.material.clone();
+          node.material.flatShading = false;
+          node.material.needsUpdate = true;
+        }
+      }
+      if (node.geometry) {
+        node.geometry = node.geometry.clone();
+        node.geometry.deleteAttribute('normal');
+        node.geometry = BufferGeometryUtils.mergeVertices(node.geometry);
+        node.geometry.computeVertexNormals();
+      }
       node.castShadow = true;
       node.receiveShadow = true;
     }
@@ -394,7 +438,7 @@ async function buildModelBody(carDef, bodyColor, accentColor, carNumber) {
     bctx.fillStyle = '#ffffff'; bctx.beginPath(); bctx.arc(32, 32, 30, 0, Math.PI * 2); bctx.fill();
     bctx.fillStyle = '#0e0f12'; bctx.font = 'bold 40px Arial'; bctx.textAlign = 'center'; bctx.textBaseline = 'middle';
     bctx.fillText(String(carNumber), 32, 34);
-    const badge = new THREE.Mesh(new THREE.CircleGeometry(0.3, 20), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(bc), transparent: true }));
+    const badge = new THREE.Mesh(new THREE.CircleGeometry(0.3, 32), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(bc), transparent: true }));
     badge.rotation.x = -Math.PI / 2 + 0.2;
     badge.position.set(0, carDef.modelBadgeY ?? 1.2, 1.0);
     group.add(badge);
@@ -424,9 +468,9 @@ function addGlowSprite(parent, localPos, color, size) {
 }
 
 function buildWheels(group, wheelPositions, chromeMat) {
-  const wheelGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.34, 18);
-  const rimGeo   = new THREE.CylinderGeometry(0.25, 0.25, 0.08, 10);
-  const discGeo  = new THREE.CylinderGeometry(0.3,  0.3,  0.36, 18);
+  const wheelGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.34, 32);
+  const rimGeo   = new THREE.CylinderGeometry(0.25, 0.25, 0.08, 20);
+  const discGeo  = new THREE.CylinderGeometry(0.3,  0.3,  0.36, 32);
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.85 });
   const discMat  = new THREE.MeshStandardMaterial({ color: 0x555a62, metalness: 0.7, roughness: 0.4 });
   const calMat   = new THREE.MeshStandardMaterial({ color: 0xff1744, metalness: 0.8, roughness: 0.2 });

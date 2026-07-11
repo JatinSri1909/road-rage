@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 const UP = new THREE.Vector3(0, 1, 0);
 
-export function buildScenery(scene, { samplePts, sampleTangents, ROAD_W }) {
+export function buildScenery(scene, { samplePts, sampleTangents, ROAD_W, colliders }) {
   // ── 1. Terrain ─────────────────────────────────────────────────────────────
   scene.add(buildTerrain(samplePts));
 
@@ -17,7 +17,7 @@ export function buildScenery(scene, { samplePts, sampleTangents, ROAD_W }) {
   scene.add(buildMountainRidge(440, 22, 30, 72, 0x1a1428, 0x3a2840, 0xb0a8c0, 42, 0.9, 2.1, 0.9, 0.55));
 
   // ── 3. Trees ───────────────────────────────────────────────────────────────
-  buildTrees(scene, samplePts, sampleTangents, ROAD_W);
+  buildTrees(scene, samplePts, sampleTangents, ROAD_W, colliders);
 
   // ── 4. Grandstands ─────────────────────────────────────────────────────────
   const startP = samplePts[0];
@@ -25,8 +25,25 @@ export function buildScenery(scene, { samplePts, sampleTangents, ROAD_W }) {
   const startRight = new THREE.Vector3().crossVectors(startT, UP).normalize();
   const gsRight = startP.clone().addScaledVector(startRight, ROAD_W / 2 + 9);
   const gsLeft = startP.clone().addScaledVector(startRight, -(ROAD_W / 2 + 9));
-  scene.add(buildGrandstand(gsRight, -Math.atan2(startT.x, startT.z) + Math.PI));
-  scene.add(buildGrandstand(gsLeft, -Math.atan2(startT.x, startT.z)));
+  const gsRightAngle = -Math.atan2(startT.x, startT.z) + Math.PI;
+  const gsLeftAngle  = -Math.atan2(startT.x, startT.z);
+  scene.add(buildGrandstand(gsRight, gsRightAngle));
+  scene.add(buildGrandstand(gsLeft, gsLeftAngle));
+
+  // Grandstand tiers are 16 units wide along the group's LOCAL x-axis, so the
+  // collider offsets must be rotated by the same faceAngle as the mesh —
+  // otherwise on a curve (any faceAngle != 0) the circles land somewhere
+  // other than where the actual geometry is.
+  [[gsRight, gsRightAngle], [gsLeft, gsLeftAngle]].forEach(([pos, angle]) => {
+    for (let k = -1; k <= 1; k++) {
+      const localX = k * 5;
+      colliders.push({
+        x: pos.x + localX * Math.cos(angle),
+        z: pos.z - localX * Math.sin(angle),
+        radius: 3.2,
+      });
+    }
+  });
 
   // ── 5. Billboards ──────────────────────────────────────────────────────────
   const billboardSpots = [80, 200, 320, 400];
@@ -35,7 +52,18 @@ export function buildScenery(scene, { samplePts, sampleTangents, ROAD_W }) {
     const p = samplePts[i], t = sampleTangents[i];
     const right = new THREE.Vector3().crossVectors(t, UP).normalize();
     const pos = p.clone().addScaledVector(right, ROAD_W / 2 + 6);
-    scene.add(buildBillboard(pos, -Math.atan2(t.x, t.z) + Math.PI / 2, billboardTexts[bi]));
+    const angle = -Math.atan2(t.x, t.z) + Math.PI / 2;
+    scene.add(buildBillboard(pos, angle, billboardTexts[bi]));
+
+    // The billboard is two separate ground poles at local x = ±3.5, not one
+    // solid block — register both, rotated the same way as the poles.
+    [-3.5, 3.5].forEach(localX => {
+      colliders.push({
+        x: pos.x + localX * Math.cos(angle),
+        z: pos.z - localX * Math.sin(angle),
+        radius: 0.35,
+      });
+    });
   });
 }
 
@@ -146,7 +174,7 @@ function buildMountainRidge(radius, baseHeight, heightScale, segs, colorBase, co
   }));
 }
 
-function buildTrees(scene, samplePts, sampleTangents, ROAD_W) {
+function buildTrees(scene, samplePts, sampleTangents, ROAD_W, colliders) {
   const spots = [];
   for (let i = 0; i < samplePts.length; i += 14) spots.push(i);
   const plannedTrees = [];
@@ -227,6 +255,7 @@ function buildTrees(scene, samplePts, sampleTangents, ROAD_W) {
         deciduousMesh.setMatrixAt(sphereIdx++, dummy.matrix);
       });
     }
+    colliders.push({ x: tree.pos.x, z: tree.pos.z, radius: 0.35 * tree.scale }); // trunk footprint
   });
 
   scene.add(trunkMesh);

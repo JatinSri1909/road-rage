@@ -33,7 +33,7 @@ export function updateHUD(player, allCars, dt) {
   _raceTime += dt;
 
   // Lap counter
-  if (lapNumEl) lapNumEl.textContent = Math.min(player.lap, 3);
+  if (lapNumEl) lapNumEl.textContent = Math.max(1, Math.min(player.lap, 3));
 
   // Race timer
   if (timeNumEl) {

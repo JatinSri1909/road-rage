@@ -9,6 +9,11 @@ import * as THREE from 'three';
 const UP = new THREE.Vector3(0, 1, 0);
 
 export function buildTrackMesh(scene, trackDef) {
+  // ── Static collision registry ─────────────────────────────────────────────
+  // Circles in the XZ plane: { x, z, radius }. Any solid, off-road prop a car
+  // could otherwise drive through should push an entry here as it's built.
+  const staticColliders = [];
+
   const { controlPoints, curveTension, samples: SAMPLES, roadWidth: ROAD_W, boostPadIndices: BOOST_PAD_IDX } = trackDef;
 
   // ── Spline sampling ───────────────────────────────────────────────────────
@@ -63,7 +68,7 @@ export function buildTrackMesh(scene, trackDef) {
   buildDashes(scene, samplePts, sampleTangents, SAMPLES);
 
   // ── Armco posts ───────────────────────────────────────────────────────────
-  buildPosts(scene, samplePts, sampleTangents, ROAD_W, SAMPLES);
+  buildPosts(scene, samplePts, sampleTangents, ROAD_W, SAMPLES, staticColliders);
 
   // ── Guardrails ────────────────────────────────────────────────────────────
   [-1, 1].forEach(side => {
@@ -72,17 +77,20 @@ export function buildTrackMesh(scene, trackDef) {
   });
 
   // ── Start/finish gate ─────────────────────────────────────────────────────
-  buildStartGate(scene, samplePts, sampleTangents, ROAD_W);
+  buildStartGate(scene, samplePts, sampleTangents, ROAD_W, staticColliders);
+
+  // ── Starting grid boxes ───────────────────────────────────────────────────
+  buildStartingGrid(scene, samplePts, sampleTangents, SAMPLES);
 
   // ── Boost pads ────────────────────────────────────────────────────────────
   BOOST_PAD_IDX.forEach(idx => scene.add(buildBoostPad(samplePts, sampleTangents, idx)));
 
   // ── Track-specific scenery ────────────────────────────────────────────────
   if (typeof trackDef.buildScenery === 'function') {
-    trackDef.buildScenery(scene, { samplePts, sampleTangents, ROAD_W, UP });
+    trackDef.buildScenery(scene, { samplePts, sampleTangents, ROAD_W, UP, colliders: staticColliders });
   }
 
-  return { samplePts, sampleTangents, curvature, SAMPLES, ROAD_W, BOOST_PAD_IDX };
+  return { samplePts, sampleTangents, curvature, SAMPLES, ROAD_W, BOOST_PAD_IDX, staticColliders };
 }
 
 // ─── Road materials ───────────────────────────────────────────────────────────
@@ -90,20 +98,34 @@ export function buildTrackMesh(scene, trackDef) {
 function makeAsphaltMaterial() {
   const c = document.createElement('canvas'); c.width = c.height = 256;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#1c1d22'; ctx.fillRect(0, 0, 256, 256);
+  ctx.fillStyle = '#3d4048'; ctx.fillRect(0, 0, 256, 256);        // was '#1c1d22'
   for (let i = 0; i < 2500; i++) {
-    const shade = 15 + Math.random() * 25;
-    ctx.fillStyle = `rgba(${shade},${shade},${shade+4},0.25)`;
+    const shade = 55 + Math.random() * 35;                        // was 15 + Math.random()*25
+    ctx.fillStyle = `rgba(${shade},${shade},${shade+6},0.25)`;
     ctx.fillRect(Math.random()*256, Math.random()*256, 1.5+Math.random()*1.5, 1.5+Math.random()*1.5);
   }
   for (let i = 0; i < 8; i++) {
-    ctx.strokeStyle = `rgba(10,10,12,${0.08+Math.random()*0.12})`;
+    ctx.strokeStyle = `rgba(20,21,26,${0.1+Math.random()*0.15})`;
     ctx.lineWidth = 4 + Math.random() * 12;
     ctx.beginPath(); ctx.moveTo(Math.random()*256, 0); ctx.lineTo(Math.random()*256, 256); ctx.stroke();
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75, metalness: 0.1, bumpMap: tex, bumpScale: 0.015, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+  return new THREE.MeshPhysicalMaterial({
+    map: tex,
+    color: 0xb7bdc9,        // cool grey-blue tint, keeps road neutral against
+                             // the warm sun / purple fog instead of reading brown
+    roughness: 0.5,
+    metalness: 0,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.12,
+    envMapIntensity: 1.4,
+    bumpMap: tex,
+    bumpScale: 0.015,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2,
+  });
 }
 
 // ─── Track furniture builders ─────────────────────────────────────────────────
@@ -186,7 +208,8 @@ function buildDashes(scene, samplePts, sampleTangents, SAMPLES) {
   scene.add(dashMesh);
 }
 
-function buildPosts(scene, samplePts, sampleTangents, ROAD_W, SAMPLES) {
+
+function buildPosts(scene, samplePts, sampleTangents, ROAD_W, SAMPLES, colliders) {
   const postGeo   = new THREE.BoxGeometry(0.6, 1.1, 0.6);
   const totalPosts = Math.floor(samplePts.length / 10) * 2;
   const half       = Math.ceil(totalPosts / 2);
@@ -207,6 +230,7 @@ function buildPosts(scene, samplePts, sampleTangents, ROAD_W, SAMPLES) {
       dummy.updateMatrix();
       if (isRed && ri < half) redMesh.setMatrixAt(ri++, dummy.matrix);
       else if (!isRed && gi < half) greyMesh.setMatrixAt(gi++, dummy.matrix);
+      colliders.push({ x: pos.x, z: pos.z, radius: 0.55 }); // half-diagonal of the 0.6×0.6 post
     });
   }
   scene.add(redMesh);
@@ -226,7 +250,7 @@ function buildGuardrail(samplePts, sampleTangents, side, dist, color, radius, he
   return mesh;
 }
 
-function buildStartGate(scene, samplePts, sampleTangents, ROAD_W) {
+function buildStartGate(scene, samplePts, sampleTangents, ROAD_W, colliders) {
   const startP  = samplePts[0];
   const startT  = sampleTangents[0];
   const right   = new THREE.Vector3().crossVectors(startT, UP).normalize();
@@ -238,6 +262,7 @@ function buildStartGate(scene, samplePts, sampleTangents, ROAD_W) {
     post.rotation.y = Math.atan2(startT.x, startT.z);
     post.castShadow = true;
     scene.add(post);
+    colliders.push({ x: pos.x, z: pos.z, radius: 0.71 }); // half-diagonal of the 1×1 post
   });
   // Checker beam
   const cc = document.createElement('canvas'); cc.width = 64; cc.height = 16;
@@ -252,6 +277,102 @@ function buildStartGate(scene, samplePts, sampleTangents, ROAD_W) {
   beam.position.set(startP.x, 6.6, startP.z);
   beam.rotation.y = Math.atan2(startT.x, startT.z);
   scene.add(beam);
+
+  // Checkered starting line on asphalt
+  const slCanvas = document.createElement('canvas');
+  slCanvas.width = 512;
+  slCanvas.height = 64;
+  const slCtx = slCanvas.getContext('2d');
+  slCtx.fillStyle = '#3d4048';
+  slCtx.fillRect(0, 0, 512, 64);
+  const cols = 32;
+  const rows = 4;
+  const boxW = 512 / cols;
+  const boxH = 48 / rows;
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      slCtx.fillStyle = ((c + r) % 2 === 0) ? '#1c1d22' : '#f2f2ee';
+      slCtx.fillRect(c * boxW, 8 + r * boxH, boxW, boxH);
+    }
+  }
+  slCtx.fillStyle = '#f2f2ee';
+  slCtx.fillRect(0, 0, 512, 8);
+  slCtx.fillRect(0, 56, 512, 8);
+
+  const startLineGeo = new THREE.PlaneGeometry(ROAD_W, 1.6);
+  startLineGeo.rotateX(-Math.PI / 2);
+  const startLineMat = new THREE.MeshStandardMaterial({
+    map: new THREE.CanvasTexture(slCanvas),
+    roughness: 0.85,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -4,
+  });
+  const startLine = new THREE.Mesh(startLineGeo, startLineMat);
+  startLine.position.set(startP.x, 0.09, startP.z);
+  startLine.rotation.y = Math.atan2(startT.x, startT.z);
+  scene.add(startLine);
+}
+
+function buildStartingGrid(scene, samplePts, sampleTangents, SAMPLES) {
+  for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
+    const gridNumber = gridIndex + 1;
+    const spawnIdx = (SAMPLES - 6 - gridIndex * 6 + SAMPLES) % SAMPLES;
+    const side = (gridIndex % 2 === 0) ? 1 : -1;
+    const laneOffset = side * 2.5;
+
+    const p = samplePts[spawnIdx], t = sampleTangents[spawnIdx];
+    const right = new THREE.Vector3().crossVectors(t, UP).normalize();
+    const boxPos = p.clone().addScaledVector(right, laneOffset);
+
+    const mat = makeGridBoxMaterial(gridNumber);
+    const gridMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 4.4), mat);
+    gridMesh.rotation.x = -Math.PI / 2;
+    gridMesh.rotation.z = -Math.atan2(t.x, t.z);
+    gridMesh.position.set(boxPos.x, 0.091, boxPos.z);
+    scene.add(gridMesh);
+  }
+}
+
+function makeGridBoxMaterial(gridNumber) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 128, 256);
+
+  ctx.strokeStyle = '#f2f2ee';
+  ctx.lineWidth = 14;
+  
+  // Front line
+  ctx.beginPath();
+  ctx.moveTo(10, 15);
+  ctx.lineTo(118, 15);
+  ctx.stroke();
+
+  // Side brackets
+  ctx.beginPath();
+  ctx.moveTo(10, 15);
+  ctx.lineTo(10, 240);
+  ctx.moveTo(118, 15);
+  ctx.lineTo(118, 240);
+  ctx.stroke();
+
+  // Grid number
+  ctx.fillStyle = '#f2f2ee';
+  ctx.font = 'bold 36px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText(String(gridNumber), 30, 55);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  return new THREE.MeshBasicMaterial({
+    map: tex,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -6,
+  });
 }
 
 function buildBoostPad(samplePts, sampleTangents, idx) {
